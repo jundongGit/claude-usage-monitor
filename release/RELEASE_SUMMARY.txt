@@ -1,0 +1,106 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║            Claude Usage Monitor v1.0.0                            ║
+║            Public Release Package                                 ║
+║            October 29, 2025                                       ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+📦 PACKAGE READY FOR PUBLIC DISTRIBUTION
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 WHAT'S INCLUDED:
+
+✓ ClaudeUsageMonitor-1.0.0.app.zip     (19 MB) - Main application
+✓ SHA256 checksum file                 (99 B)  - Integrity check
+✓ Complete documentation suite         (30 KB) - 6 markdown files
+✓ MIT License                          (1 KB)  - Open source
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📄 DOCUMENTATION:
+
+1. README_RELEASE.md    - Start here (package overview)
+2. INSTALL.md           - Installation guide (step-by-step)
+3. README.md            - Full documentation (features & usage)
+4. RELEASE_NOTES.md     - What's new in v1.0.0
+5. CHANGELOG.md         - Complete version history
+6. LICENSE              - MIT License terms
+7. DISTRIBUTION_CHECKLIST.md - For maintainers
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔐 VERIFICATION:
+
+SHA256: 237ef1d987cf88805f2ea54ccc172e0f0a861325fa7bcf5da1ce6c1f8a9a2232
+
+Verify: shasum -a 256 -c ClaudeUsageMonitor-1.0.0.app.zip.sha256
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✨ KEY FEATURES:
+
+• Real-time Claude.ai usage monitoring
+• Three independent metrics (5-hour, 7-day all, 7-day Opus)
+• Status bar integration (menu bar only)
+• Smart notifications (90%, 95% thresholds)
+• Auto-start on login (optional)
+• Secure local storage
+• No Python installation required
+• Free & open source (MIT License)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💻 SYSTEM REQUIREMENTS:
+
+• macOS 10.14 (Mojave) or later
+• ~50 MB disk space
+• Internet connection
+• Claude.ai account (free or paid)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 QUICK START FOR USERS:
+
+1. Read INSTALL.md for detailed instructions
+2. Download ClaudeUsageMonitor-1.0.0.app.zip
+3. Extract and drag to /Applications
+4. Launch and configure with your Claude Cookie
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📤 DISTRIBUTION OPTIONS:
+
+PRIMARY:
+• GitHub Release (recommended)
+  - Create release at github.com/USERNAME/repo/releases/new
+  - Tag: v1.0.0
+  - Upload .app.zip and .sha256
+  - Copy RELEASE_NOTES.md as description
+
+ALTERNATIVE:
+• Cloud storage (Google Drive, Dropbox)
+• Direct download from website
+• Package managers (Homebrew Cask - future)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 STATUS: ✅ READY FOR PUBLIC RELEASE
+
+All files tested, documented, and verified.
+Package is production-ready.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📞 SUPPORT:
+
+• Documentation: See included .md files
+• Issues: GitHub issue tracker
+• Source: Available on GitHub
+• License: MIT (free to use & modify)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Built with ❤️ for the Claude community
+
