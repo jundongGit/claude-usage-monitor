@@ -4,16 +4,20 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
 import requests
 import json
+import re
 from datetime import datetime, timezone
 import os
 import sys
 import time
+import webbrowser
+from AppKit import (NSApp, NSAlert, NSAlertFirstButtonReturn, NSFloatingWindowLevel,
+                     NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString)
 
 
 class ClaudeUsageApp(rumps.App):
@@ -45,7 +49,7 @@ class ClaudeUsageApp(rumps.App):
             rumps.MenuItem("💎 Opus Limit: Loading...", callback=None),
             rumps.separator,
             rumps.MenuItem("🔄 Refresh", callback=self.refresh_usage),
-            rumps.MenuItem("⚙️  Set Cookie", callback=self.set_cookie),
+            rumps.MenuItem("⚙️  Settings", callback=self.set_config),
             rumps.MenuItem("🚀 Auto-start on Login", callback=self.toggle_autostart),
             rumps.separator,
             rumps.MenuItem("❌ Quit", callback=rumps.quit_application)
@@ -61,9 +65,35 @@ class ClaudeUsageApp(rumps.App):
         # Fetch data on startup
         self.refresh_usage(None)
 
+        # Add Edit menu so Cmd+V paste works in dialogs (delayed, NSApp not ready in __init__)
+        self._edit_menu_timer = rumps.Timer(self._deferred_setup_edit_menu, 1)
+        self._edit_menu_timer.start()
+
         # Set timer to refresh every 1 minute
         self.timer = rumps.Timer(self.refresh_usage, 60)
         self.timer.start()
+
+    def _deferred_setup_edit_menu(self, _):
+        """Add standard Edit menu so Cmd+C/V/X/A work in dialogs"""
+        self._edit_menu_timer.stop()
+        try:
+            mainMenu = NSApp.mainMenu()
+            if mainMenu is None:
+                mainMenu = NSMenu.alloc().init()
+                NSApp.setMainMenu_(mainMenu)
+
+            edit_menu = NSMenu.alloc().initWithTitle_("Edit")
+            edit_menu.addItemWithTitle_action_keyEquivalent_("Undo", "undo:", "z")
+            edit_menu.addItemWithTitle_action_keyEquivalent_("Cut", "cut:", "x")
+            edit_menu.addItemWithTitle_action_keyEquivalent_("Copy", "copy:", "c")
+            edit_menu.addItemWithTitle_action_keyEquivalent_("Paste", "paste:", "v")
+            edit_menu.addItemWithTitle_action_keyEquivalent_("Select All", "selectAll:", "a")
+
+            edit_item = NSMenuItem.alloc().init()
+            edit_item.setSubmenu_(edit_menu)
+            mainMenu.addItem_(edit_item)
+        except Exception as e:
+            print(f"Setup edit menu failed: {e}")
 
     def load_config(self):
         """Load configuration file"""
@@ -73,6 +103,7 @@ class ClaudeUsageApp(rumps.App):
                     config = json.load(f)
                     self.cookie = config.get('cookie', '')
                     self.org_id = config.get('org_id', '')
+                    self.account_name = config.get('account_name', '')
             except json.JSONDecodeError as e:
                 print(f"Config file corrupted, reset: {e}")
                 # Backup corrupted file
@@ -85,19 +116,23 @@ class ClaudeUsageApp(rumps.App):
                         pass
                 self.cookie = ''
                 self.org_id = ''
+                self.account_name = ''
             except Exception as e:
                 print(f"Error loading config file: {e}")
                 self.cookie = ''
                 self.org_id = ''
+                self.account_name = ''
         else:
             self.cookie = ''
             self.org_id = ''
+            self.account_name = ''
 
     def save_config(self):
         """Save configuration file"""
         config = {
             'cookie': self.cookie,
-            'org_id': self.org_id
+            'org_id': self.org_id,
+            'account_name': self.account_name
         }
         try:
             # Write config file
@@ -168,26 +203,39 @@ class ClaudeUsageApp(rumps.App):
 
     def show_welcome_guide(self):
         """Show welcome guide for first run"""
-        response = rumps.alert(
-            title="Welcome to Claude Usage Monitor 👋",
+        response = self._top_alert(
+            title="Welcome to Claude Usage Monitor",
             message=(
                 "Thank you for using Claude Usage Monitor!\n\n"
-                "First-time setup requires your Claude Cookie and Organization ID.\n\n"
-                "📌 How to get configuration:\n"
-                "1. Visit claude.ai and login\n"
-                "2. Open browser DevTools (F12)\n"
-                "3. Go to Network tab\n"
-                "4. Visit claude.ai/settings/usage\n"
-                "5. Find 'usage' request, get Cookie & org_id\n\n"
-                "See README.md for detailed steps.\n\n"
-                "Configure now?"
+                "Setup only takes one step:\n"
+                "Copy a cURL command from browser DevTools\n"
+                "and paste it here. That's it!\n\n"
+                "Click \"Configure Now\" to get started."
             ),
             ok="Configure Now",
             cancel="Later"
         )
+        if response == 1:
+            self._manual_set_config()
 
-        if response == 1:  # Clicked "Configure Now"
-            self.set_cookie(None)
+    def _top_alert(self, title, message, ok="OK", cancel=None):
+        """Show an alert dialog that floats above all windows"""
+        NSApp.activateIgnoringOtherApps_(True)
+        alert = NSAlert.alloc().init()
+        alert.setMessageText_(title)
+        alert.setInformativeText_(message)
+        alert.addButtonWithTitle_(ok)
+        if cancel:
+            alert.addButtonWithTitle_(cancel)
+        alert.window().setLevel_(NSFloatingWindowLevel)
+        result = alert.runModal()
+        return 1 if result == NSAlertFirstButtonReturn else 0
+
+    def _read_clipboard(self):
+        """Read text content from system clipboard"""
+        pb = NSPasteboard.generalPasteboard()
+        text = pb.stringForType_(NSPasteboardTypeString)
+        return str(text) if text else None
 
     def should_notify(self, notification_key, threshold=900):
         """
@@ -208,38 +256,127 @@ class ClaudeUsageApp(rumps.App):
             return True
         return False
 
-    @rumps.clicked("⚙️  Set Cookie")
-    def set_cookie(self, _):
-        """Set Cookie and Organization ID"""
-        window = rumps.Window(
-            message="Enter Cookie from browser (full Cookie string)",
-            title="Set Cookie",
-            default_text=self.cookie,
-            dimensions=(400, 100)
+    def parse_curl_command(self, curl_text):
+        """
+        Parse cURL command to extract cookie and org_id.
+        Supports:
+        - Cookie via -H 'Cookie: ...' or -b '...'
+        - Org ID from URL /organizations/{uuid}/ or from lastActiveOrg cookie
+        Returns: (cookie, org_id) or (None, None) on failure
+        """
+        curl_text = curl_text.strip()
+        if not curl_text:
+            return None, None
+
+        # Extract org_id from URL: /organizations/{uuid}/
+        org_match = re.search(
+            r'/organizations/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})',
+            curl_text
         )
-        response = window.run()
+        org_id = org_match.group(1) if org_match else None
 
-        if response.clicked:
-            self.cookie = response.text
+        # Extract cookie string from -H 'Cookie: ...' or -b '...'
+        # Must match same quote type (cookie values may contain " from JSON)
+        cookie_str = None
+        for pattern in [
+            r"""(?:-H|--header)\s+'Cookie:\s*([^']*)'""",
+            r'''(?:-H|--header)\s+"Cookie:\s*([^"]*)"''',
+            r"""(?:-b|--cookie)\s+'([^']*)'""",
+            r'''(?:-b|--cookie)\s+"([^"]*)"''',
+        ]:
+            m = re.search(pattern, curl_text, re.DOTALL)
+            if m:
+                cookie_str = m.group(1).strip()
+                break
 
-            # Ask for Organization ID
-            window2 = rumps.Window(
-                message="Enter Organization ID (from API request)",
-                title="Set Organization ID",
-                default_text=self.org_id,
-                dimensions=(400, 24)
-            )
-            response2 = window2.run()
+        cookie = None
+        if cookie_str:
+            # Verify sessionKey exists in cookie string
+            if re.search(r'sessionKey=', cookie_str):
+                # Save full cookie string for Cloudflare compatibility
+                cookie = cookie_str
 
-            if response2.clicked:
-                self.org_id = response2.text
-                self.save_config()
-                self.refresh_usage(None)
-                rumps.notification(
-                    title="Configuration Saved",
-                    subtitle="",
-                    message="Cookie saved, refreshing data..."
+            # If org_id not in URL, try lastActiveOrg from cookie
+            if not org_id:
+                org_cookie_match = re.search(
+                    r'lastActiveOrg=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})',
+                    cookie_str
                 )
+                if org_cookie_match:
+                    org_id = org_cookie_match.group(1)
+
+        return cookie, org_id
+
+
+    @rumps.clicked("⚙️  Settings")
+    def set_config(self, _):
+        """Open settings flow"""
+        self._manual_set_config()
+
+    def _manual_set_config(self):
+        """One-step configuration: copy cURL, then read from clipboard"""
+        # Step 1: Open usage page in browser
+        choice = self._top_alert(
+            title="Configure Claude Usage Monitor",
+            message=(
+                "Click \"Open Usage Page\" to open the page, then:\n\n"
+                "1. Press F12 (or Cmd+Option+I) → Network tab\n"
+                "2. Refresh the page\n"
+                "3. Find any request (e.g. 'usage')\n"
+                "4. Right-click → Copy as cURL\n\n"
+                "After copying, come back and click Settings again."
+            ),
+            ok="Open Usage Page",
+            cancel="Read from Clipboard"
+        )
+
+        if choice == 1:
+            webbrowser.open("https://claude.ai/settings/usage")
+            # Show reminder to come back
+            self._top_alert(
+                "Next Step",
+                "After copying the cURL command (Cmd+C),\n"
+                "click the button below to configure.",
+                ok="Read from Clipboard"
+            )
+
+        # Step 2: Read from clipboard
+        raw_text = self._read_clipboard()
+
+        if not raw_text:
+            self._top_alert("Error", "Clipboard is empty.\nPlease copy the cURL command first.")
+            return
+
+        cookie, org_id = self.parse_curl_command(raw_text)
+
+        if not cookie:
+            self._top_alert(
+                "Parse Failed",
+                "Could not find sessionKey in clipboard content.\n\n"
+                "Make sure you right-clicked a request on claude.ai\n"
+                "and selected \"Copy as cURL\"."
+            )
+            return
+
+        if not org_id:
+            self._top_alert(
+                "Parse Failed",
+                "Could not find Organization ID.\n\n"
+                "Make sure you copied a cURL from claude.ai."
+            )
+            return
+
+        self.cookie = cookie
+        self.org_id = org_id
+
+        # Save and refresh
+        self.save_config()
+        self.refresh_usage(None)
+        rumps.notification(
+            title="Configuration Saved",
+            subtitle="",
+            message="Cookie and Org ID extracted, refreshing..."
+        )
 
     def is_autostart_enabled(self):
         """Check if auto-start is enabled"""
@@ -339,6 +476,22 @@ class ClaudeUsageApp(rumps.App):
         except Exception as e:
             rumps.alert("Error", f"Failed to setup auto-start: {str(e)}")
 
+    def _browser_headers(self):
+        """Return browser-like headers to avoid Cloudflare 403"""
+        return {
+            'Cookie': self.cookie,
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Ch-Ua': '"Not(A:Brand";v="8", "Chromium";v="144", "Google Chrome";v="144"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"macOS"',
+            'Referer': 'https://claude.ai/settings/usage',
+        }
+
     @rumps.clicked("🔄 Refresh")
     def refresh_usage(self, _):
         """Refresh usage data"""
@@ -352,10 +505,7 @@ class ClaudeUsageApp(rumps.App):
         try:
             # Call API
             url = f"https://claude.ai/api/organizations/{self.org_id}/usage"
-            headers = {
-                'Cookie': self.cookie,
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-            }
+            headers = self._browser_headers()
 
             response = requests.get(url, headers=headers, timeout=10)
 

@@ -18,8 +18,8 @@ OPTIONS = {
         'CFBundleDisplayName': 'Claude Usage Monitor',
         'CFBundleGetInfoString': 'Monitor your Claude.ai usage in real-time',
         'CFBundleIdentifier': 'com.claude.usage.monitor',
-        'CFBundleVersion': '1.0.0',
-        'CFBundleShortVersionString': '1.0.0',
+        'CFBundleVersion': '1.2.0',
+        'CFBundleShortVersionString': '1.2.0',
         'NSHumanReadableCopyright': 'Copyright © 2025 Claude Usage Monitor Contributors. MIT License.',
         
         # Menu Bar App Settings
@@ -32,12 +32,13 @@ OPTIONS = {
     
     # Include required packages
     'packages': ['rumps', 'requests', 'certifi'],
-    
+
     # Include all dependencies
     'includes': [
         'rumps',
         'requests',
         'json',
+        're',
         'datetime',
         'os',
         'sys',
