@@ -4,7 +4,7 @@
 
 A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -27,14 +27,14 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **Menu:**
 ```
-📊 Claude Usage Monitor v1.0.0
+📊 Claude Usage Monitor v1.2.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⏱️  5-Hour Limit: 🟢 12% (Resets: 4hr 38min)
 🛠️  All Models: 🟢 51% (Resets: 1d 22hr)
 💎 Opus Limit: 🟢 0% (Unused)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔄 Refresh
-⚙️  Set Cookie
+⚙️  Settings
 🚀 Auto-start on Login ✓
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ❌ Quit
@@ -46,7 +46,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.0.0.app.zip`](../../releases/download/v1.0.0/ClaudeUsageMonitor-1.0.0.app.zip) (19 MB)
+1. **Download** [`ClaudeUsageMonitor-1.2.0.app.zip`](../../releases/download/v1.2.0/ClaudeUsageMonitor-1.2.0.app.zip) (19 MB)
 2. **Extract** the ZIP file (double-click)
 3. **Drag** `Claude Usage Monitor.app` to `/Applications` folder
 4. **Launch** from Applications
@@ -54,9 +54,10 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 The app appears in your menu bar, not in the Dock.
 
 **First-time Setup:**
-1. Click the menu bar icon
-2. Select "⚙️ Set Cookie"
-3. Follow instructions to get Cookie and Org ID from claude.ai
+1. Open [claude.ai/settings/usage](https://claude.ai/settings/usage) in browser
+2. Press F12 → Network tab → Refresh page
+3. Right-click any request → **Copy as cURL**
+4. Click the menu bar icon → **⚙️ Settings** → **Read from Clipboard**
 
 ---
 
@@ -70,7 +71,7 @@ The app appears in your menu bar, not in the Dock.
 #### 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/claude-usage-monitor.git
+git clone https://github.com/jundongGit/claude-usage-monitor.git
 cd claude-usage-monitor
 ```
 
@@ -84,38 +85,20 @@ pip3 install -r requirements.txt
 - `rumps==0.4.0` - macOS status bar app framework
 - `requests>=2.31.0` - HTTP library
 
-#### 3️⃣ Get Cookie and Organization ID
-
-**Method 1: Browser DevTools (Recommended)**
-
-1. Login to [Claude.ai](https://claude.ai) in your browser
-2. Open DevTools (F12 or Cmd+Option+I)
-3. Go to **Network** tab
-4. Visit https://claude.ai/settings/usage
-5. Find the `usage` request in the network list
-6. Click the request to view details:
-   - **Cookie**: In Request Headers, find `Cookie`, copy the `sessionKey=sk-ant-sid01-...` part
-   - **Organization ID**: In Request URL, find `/api/organizations/{org_id}/usage`, copy `{org_id}`
-
-**Example:**
-```
-Cookie: sessionKey=sk-ant-sid01-0XawkFbhoCmT2k8nMEKpABjDFSxls98S...
-Org ID: 314822f8-5b98-410e-a092-1ef999fe98a8
-```
-
-#### 4️⃣ Launch the App
+#### 3️⃣ Launch the App
 
 ```bash
 python3 main.py
 ```
 
-#### 5️⃣ First-time Setup
+#### 4️⃣ First-time Setup
 
-1. After launch, click the ⚠️ icon in the status bar
-2. Select **⚙️  Set Cookie**
-3. Enter the full Cookie string (including `sessionKey=...`)
-4. Enter the Organization ID (UUID format)
-5. Click OK and wait for data refresh
+1. Open [claude.ai/settings/usage](https://claude.ai/settings/usage) in browser
+2. Press F12 (or Cmd+Option+I) → **Network** tab → Refresh page
+3. Right-click any request → **Copy as cURL**
+4. Click the ⚠️ icon in the status bar → **⚙️ Settings** → **Read from Clipboard**
+
+Cookie and Organization ID are extracted automatically from the cURL command.
 
 🎉 **Done!** The app will now display your Claude usage
 
@@ -131,12 +114,12 @@ The status bar shows current usage and reset countdown:
 
 ### Menu Items
 
-- **📊 Claude Usage Monitor v1.0.0** - Title (non-clickable)
+- **📊 Claude Usage Monitor v1.2.0** - Title (non-clickable)
 - **⏱️  5-Hour Limit** - Shows 5-hour rolling window usage
-- **📅 All Models** - Shows 7-day all models usage
+- **🛠️  All Models** - Shows 7-day all models usage
 - **💎 Opus Limit** - Shows 7-day Opus model usage
 - **🔄 Refresh** - Manually refresh usage data
-- **⚙️  Set Cookie** - Update Cookie and Organization ID
+- **⚙️  Settings** - Configure via cURL clipboard import
 - **🚀 Auto-start on Login** - Toggle auto-start (✓ when enabled)
 - **❌ Quit** - Exit application
 
@@ -173,9 +156,9 @@ Usage is color-coded in the menu:
 ### Cookie Expired
 
 If you see 🔒 icon and "Authentication Failed" notification:
-1. Re-login to [Claude.ai](https://claude.ai)
-2. Follow the steps above to get a new Cookie
-3. Click **⚙️  Set Cookie** to update configuration
+1. Open [claude.ai/settings/usage](https://claude.ai/settings/usage) in browser
+2. F12 → Network → Refresh → Right-click any request → **Copy as cURL**
+3. Click **⚙️ Settings** → **Read from Clipboard**
 4. Click **🔄 Refresh** to manually refresh data
 
 ### App Not Responding or Crashed
@@ -238,8 +221,9 @@ Location: `~/.claude_usage_config.json`
 
 ```json
 {
-  "cookie": "sessionKey=sk-ant-sid01-...",
-  "org_id": "314822f8-5b98-410e-a092-1ef999fe98a8"
+  "cookie": "sessionKey=sk-ant-sid02-...; lastActiveOrg=...; cf_clearance=...",
+  "org_id": "314822f8-5b98-410e-a092-1ef999fe98a8",
+  "account_name": ""
 }
 ```
 
