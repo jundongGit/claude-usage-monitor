@@ -4,20 +4,153 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
 import requests
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
 import os
 import sys
 import time
 import webbrowser
 from AppKit import (NSApp, NSAlert, NSAlertFirstButtonReturn, NSFloatingWindowLevel,
                      NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString)
+
+
+# Model pricing ($/M tokens) — same as cc-statistics
+_PRICING = {
+    "opus": {"input": 15, "output": 75, "cache_read": 1.5, "cache_create": 18.75},
+    "sonnet": {"input": 3, "output": 15, "cache_read": 0.3, "cache_create": 3.75},
+    "haiku": {"input": 0.8, "output": 4, "cache_read": 0.08, "cache_create": 1.0},
+}
+
+
+def _match_pricing(model):
+    lower = model.lower()
+    for key in ("opus", "haiku", "sonnet"):
+        if key in lower:
+            return _PRICING[key]
+    return _PRICING["sonnet"]
+
+
+def _fmt_tokens(n):
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    return str(n)
+
+
+def _fmt_cost(n):
+    if n >= 100:
+        return f"${n:.0f}"
+    if n >= 1:
+        return f"${n:.2f}"
+    return f"${n:.3f}"
+
+
+def get_today_token_stats():
+    """Read ~/.claude/projects/ JSONL files, return today's token usage by model.
+
+    Returns dict: {model_name: {input, output, cache_read, cache_create}}
+    """
+    claude_projects = Path.home() / ".claude" / "projects"
+    if not claude_projects.exists():
+        return {}
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    model_usage = {}  # model -> {input, output, cache_read, cache_create}
+    seen_message_ids = {}  # message_id -> max output_tokens (for dedup)
+
+    for proj_dir in claude_projects.iterdir():
+        if not proj_dir.is_dir():
+            continue
+        for jsonl_file in proj_dir.glob("*.jsonl"):
+            if jsonl_file.name.startswith("agent-"):
+                continue
+            # Skip files not modified today (optimization)
+            try:
+                mtime = datetime.fromtimestamp(jsonl_file.stat().st_mtime)
+                if mtime.strftime("%Y-%m-%d") < today:
+                    continue
+            except OSError:
+                continue
+
+            try:
+                with open(jsonl_file, encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            obj = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+
+                        if obj.get("type") != "assistant":
+                            continue
+
+                        # Check timestamp is today
+                        ts = obj.get("timestamp", "")
+                        if not ts:
+                            continue
+                        try:
+                            if isinstance(ts, (int, float)) or str(ts).isdigit():
+                                dt = datetime.fromtimestamp(int(ts) / 1000)
+                            else:
+                                dt = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone()
+                            if dt.strftime("%Y-%m-%d") != today:
+                                continue
+                        except (ValueError, OSError):
+                            continue
+
+                        raw_msg = obj.get("message", {})
+                        usage = raw_msg.get("usage", {})
+                        if not usage:
+                            continue
+
+                        # Streaming dedup: keep the record with max output_tokens per message_id
+                        msg_id = raw_msg.get("id", "")
+                        out_tokens = usage.get("output_tokens", 0) or 0
+                        if msg_id:
+                            prev_out = seen_message_ids.get(msg_id, -1)
+                            if out_tokens <= prev_out:
+                                continue
+                            # Remove previous record's contribution
+                            if prev_out >= 0:
+                                prev_model = seen_message_ids.get(f"{msg_id}_model", "unknown")
+                                if prev_model in model_usage:
+                                    prev_usage = seen_message_ids.get(f"{msg_id}_usage", {})
+                                    mu = model_usage[prev_model]
+                                    mu["input"] -= prev_usage.get("input_tokens", 0)
+                                    mu["output"] -= prev_usage.get("output_tokens", 0)
+                                    mu["cache_read"] -= prev_usage.get("cache_read_input_tokens", 0)
+                                    mu["cache_create"] -= prev_usage.get("cache_creation_input_tokens", 0)
+                            seen_message_ids[msg_id] = out_tokens
+                            seen_message_ids[f"{msg_id}_usage"] = usage
+                            seen_message_ids[f"{msg_id}_model"] = raw_msg.get("model", "unknown")
+
+                        model = raw_msg.get("model") or "unknown"
+                        if model.startswith("<"):
+                            model = "unknown"
+
+                        if model not in model_usage:
+                            model_usage[model] = {"input": 0, "output": 0, "cache_read": 0, "cache_create": 0}
+
+                        mu = model_usage[model]
+                        mu["input"] += usage.get("input_tokens", 0) or 0
+                        mu["output"] += usage.get("output_tokens", 0) or 0
+                        mu["cache_read"] += usage.get("cache_read_input_tokens", 0) or 0
+                        mu["cache_create"] += usage.get("cache_creation_input_tokens", 0) or 0
+
+            except (OSError, UnicodeDecodeError):
+                continue
+
+    return model_usage
 
 
 class ClaudeUsageApp(rumps.App):
@@ -47,6 +180,11 @@ class ClaudeUsageApp(rumps.App):
             rumps.MenuItem("⏱️  5-Hour Limit: Loading...", callback=None),
             rumps.MenuItem("🛠️  All Models: Loading...", callback=None),
             rumps.MenuItem("💎 Opus Limit: Loading...", callback=None),
+            rumps.separator,
+            rumps.MenuItem("📈 Today: Loading...", callback=None),
+            rumps.MenuItem("    ⬇️  Input: ...", callback=None),
+            rumps.MenuItem("    ⬆️  Output: ...", callback=None),
+            rumps.MenuItem("💰 Cost: Loading...", callback=None),
             rumps.separator,
             rumps.MenuItem("🔄 Refresh", callback=self.refresh_usage),
             rumps.MenuItem("⚙️  Settings", callback=self.set_config),
@@ -495,6 +633,9 @@ class ClaudeUsageApp(rumps.App):
     @rumps.clicked("🔄 Refresh")
     def refresh_usage(self, _):
         """Refresh usage data"""
+        # Always update token stats (reads local files, no API needed)
+        self.update_token_stats()
+
         if not self.cookie or not self.org_id:
             self.title = "⚠️"
             self.menu["⏱️  5-Hour Limit: Loading..."].title = "⏱️  5-Hour: Not configured"
@@ -527,6 +668,63 @@ class ClaudeUsageApp(rumps.App):
             self.title = "❌"
             self.menu["⏱️  5-Hour Limit: Loading..."].title = f"Error: {str(e)}"
             print(f"Request failed: {e}")
+
+    def update_token_stats(self):
+        """Update today's token usage and cost from local JSONL files"""
+        try:
+            model_usage = get_today_token_stats()
+
+            if not model_usage:
+                self.menu["📈 Today: Loading..."].title = "📈 Today: 0 tokens"
+                self.menu["    ⬇️  Input: ..."].title = "    ⬇️  Input: 0"
+                self.menu["    ⬆️  Output: ..."].title = "    ⬆️  Output: 0"
+                self.menu["💰 Cost: Loading..."].title = "💰 Cost: $0.000"
+                return
+
+            # Calculate totals
+            total_input = sum(u["input"] for u in model_usage.values())
+            total_output = sum(u["output"] for u in model_usage.values())
+            total_cache_read = sum(u["cache_read"] for u in model_usage.values())
+            total_cache_create = sum(u["cache_create"] for u in model_usage.values())
+            total_tokens = total_input + total_output + total_cache_read + total_cache_create
+
+            # Calculate cost per model
+            total_cost = 0.0
+            cost_parts = []
+            for model, usage in sorted(model_usage.items(), key=lambda x: sum(x[1].values()), reverse=True):
+                p = _match_pricing(model)
+                cost = (
+                    usage["input"] / 1e6 * p["input"]
+                    + usage["output"] / 1e6 * p["output"]
+                    + usage["cache_read"] / 1e6 * p["cache_read"]
+                    + usage["cache_create"] / 1e6 * p["cache_create"]
+                )
+                total_cost += cost
+                # Shorten model name
+                short_name = model.split("/")[-1] if "/" in model else model
+                # Pick emoji for model tier
+                if "opus" in model.lower():
+                    icon = "💎"
+                elif "haiku" in model.lower():
+                    icon = "⚡"
+                else:
+                    icon = "🔷"
+                cost_parts.append(f"{icon} {short_name} {_fmt_cost(cost)}")
+
+            # Token breakdown (input + output only, exclude cache)
+            display_total = total_input + total_output
+            self.menu["📈 Today: Loading..."].title = f"📈 Today: {_fmt_tokens(display_total)} tokens"
+            self.menu["    ⬇️  Input: ..."].title = f"    ⬇️  Input: {_fmt_tokens(total_input)}"
+            self.menu["    ⬆️  Output: ..."].title = f"    ⬆️  Output: {_fmt_tokens(total_output)}"
+
+            # Cost with model breakdown
+            cost_detail = "  ".join(cost_parts[:3])
+            self.menu["💰 Cost: Loading..."].title = f"💰 Cost: {_fmt_cost(total_cost)}  ({cost_detail})"
+
+        except Exception as e:
+            print(f"Token stats update failed: {e}")
+            import traceback
+            traceback.print_exc()
 
     def update_ui(self, data):
         """Update UI display"""
