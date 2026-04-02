@@ -193,11 +193,11 @@ class ClaudeUsageApp(rumps.App):
             if hours > 24:
                 days = hours // 24
                 hours = hours % 24
-                return f"{days}d {hours}hr"
+                return f"{days}d{hours}h"
             elif hours > 0:
-                return f"{hours}hr {minutes}min"
+                return f"{hours}h{minutes}m"
             else:
-                return f"{minutes}min"
+                return f"{minutes}m"
         except Exception as e:
             return ""
 
@@ -542,7 +542,7 @@ class ClaudeUsageApp(rumps.App):
                 time_short = self.format_time_short(reset_time)
 
                 # Status bar shows 5-hour usage and countdown
-                self.title = f"{utilization}% {time_short}"
+                self.title = f"{int(utilization)}% {time_short}"
 
                 # Show different colored emoji based on usage
                 if utilization >= 90:
