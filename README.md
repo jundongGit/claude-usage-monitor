@@ -4,7 +4,7 @@
 
 A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -15,6 +15,8 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 - 🎯 **Real-time Monitoring** - Auto-refresh every 1 minute
 - 📊 **Three Metrics** - 5-hour limit, All models, Opus limit
+- 📈 **Today's Token Usage** - Daily input/output token tracking per model
+- 💰 **Cost Estimation** - Real-time cost calculation based on model pricing
 - ⏱️ **Countdown Display** - Shows usage and reset countdown in status bar
 - 🚀 **Auto-start** - Optional login item (toggle in menu)
 - 🔔 **Smart Notifications** - Alerts at 90%/95% (15-min dedup)
@@ -27,11 +29,16 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **Menu:**
 ```
-📊 Claude Usage Monitor v1.2.0
+📊 Claude Usage Monitor v1.3.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⏱️  5-Hour Limit: 🟢 12% (Resets: 4hr 38min)
-🛠️  All Models: 🟢 51% (Resets: 1d 22hr)
-💎 Opus Limit: 🟢 0% (Unused)
+⏱️  5-Hour: 🟢 11% (Resets: 1h11m)
+🛠️  All Models: 🟢 43% (Resets: 2d17h)
+💎 Opus: No data
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📈 Today: 354.5K tokens
+    ⬇️  Input: 3.3K
+    ⬆️  Output: 351.2K
+💰 Cost: $234 (💎 claude-opus-4-6 $234  🟢 unknown $0.000)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔄 Refresh
 ⚙️  Settings
@@ -46,7 +53,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.2.0.app.zip`](../../releases/download/v1.2.0/ClaudeUsageMonitor-1.2.0.app.zip) (19 MB)
+1. **Download** [`ClaudeUsageMonitor-1.3.0.app.zip`](../../releases/download/v1.3.0/ClaudeUsageMonitor-1.3.0.app.zip) (20 MB)
 2. **Extract** the ZIP file (double-click)
 3. **Drag** `Claude Usage Monitor.app` to `/Applications` folder
 4. **Launch** from Applications
@@ -114,10 +121,13 @@ The status bar shows current usage and reset countdown:
 
 ### Menu Items
 
-- **📊 Claude Usage Monitor v1.2.0** - Title (non-clickable)
+- **📊 Claude Usage Monitor v1.3.0** - Title (non-clickable)
 - **⏱️  5-Hour Limit** - Shows 5-hour rolling window usage
 - **🛠️  All Models** - Shows 7-day all models usage
 - **💎 Opus Limit** - Shows 7-day Opus model usage
+- **📈 Today** - Today's total token count
+- **⬇️ Input / ⬆️ Output** - Input and output token breakdown
+- **💰 Cost** - Estimated cost breakdown by model
 - **🔄 Refresh** - Manually refresh usage data
 - **⚙️  Settings** - Configure via cURL clipboard import
 - **🚀 Auto-start on Login** - Toggle auto-start (✓ when enabled)

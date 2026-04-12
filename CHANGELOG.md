@@ -5,6 +5,43 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-04-12
+
+### ✨ New Features
+
+#### Today's Token Usage & Cost Tracking
+- **📈 Daily Token Stats**: Real-time tracking of today's input/output tokens by model
+- **💰 Cost Estimation**: Automatic cost calculation based on official model pricing (Opus/Sonnet/Haiku)
+- **Per-model Breakdown**: See token usage and cost for each model separately
+- **Smart Deduplication**: Handles streaming records correctly, avoiding double-counting
+- **Local Data**: Reads from `~/.claude/projects/` JSONL files — no additional API calls needed
+
+#### Display Improvements
+- **Compact Time Format**: Shortened reset time display (e.g., `1h11m` instead of `1hr 11min`, `2d17h` instead of `2d 17hr`)
+- **Cleaner Status Bar**: Removed decimal points from percentage display
+
+### 🛠️ Technical Details
+- Added model pricing constants matching cc-statistics
+- Token formatting helpers for K/M display
+- Cost formatting with smart precision ($0.001 / $1.23 / $234)
+
+---
+
+## [1.2.0] - 2025-10-29
+
+### ✨ New Features
+
+#### One-step cURL Clipboard Config
+- **⚙️ Settings Revamp**: Replaced manual Cookie/Org ID input with one-click cURL clipboard import
+- **Auto-extraction**: Automatically extracts Cookie and Organization ID from copied cURL command
+- **Edit Menu Support**: Added standard Edit menu (Cmd+C/V/X/A) for dialog input fields
+
+#### Other Improvements
+- Added account name support in configuration
+- Improved first-run welcome guide
+
+---
+
 ## [1.0.0] - 2025-10-28
 
 ### 🎉 Initial Release
