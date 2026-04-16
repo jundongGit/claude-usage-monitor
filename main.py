@@ -179,7 +179,7 @@ class ClaudeUsageApp(rumps.App):
             rumps.separator,
             rumps.MenuItem("⏱️  5-Hour Limit: Loading...", callback=None),
             rumps.MenuItem("🛠️  All Models: Loading...", callback=None),
-            rumps.MenuItem("💎 Opus Limit: Loading...", callback=None),
+            rumps.MenuItem("🔷 Sonnet Limit: Loading...", callback=None),
             rumps.separator,
             rumps.MenuItem("📈 Today: Loading...", callback=None),
             rumps.MenuItem("    ⬇️  Input: ...", callback=None),
@@ -640,7 +640,7 @@ class ClaudeUsageApp(rumps.App):
             self.title = "⚠️"
             self.menu["⏱️  5-Hour Limit: Loading..."].title = "⏱️  5-Hour: Not configured"
             self.menu["🛠️  All Models: Loading..."].title = "🛠️  All Models: Not configured"
-            self.menu["💎 Opus Limit: Loading..."].title = "💎 Opus: Not configured"
+            self.menu["🔷 Sonnet Limit: Loading..."].title = "🔷 Sonnet only: Not configured"
             return
 
         try:
@@ -776,14 +776,14 @@ class ClaudeUsageApp(rumps.App):
             else:
                 self.menu["🛠️  All Models: Loading..."].title = "🛠️  All Models: No data"
 
-            # Opus limit
-            if 'seven_day_opus' in data and data['seven_day_opus']:
-                opus = data['seven_day_opus']
-                utilization = opus.get('utilization', 0)
-                reset_time = opus.get('resets_at')
+            # Sonnet limit
+            if 'seven_day_sonnet' in data and data['seven_day_sonnet']:
+                sonnet = data['seven_day_sonnet']
+                utilization = sonnet.get('utilization', 0)
+                reset_time = sonnet.get('resets_at')
 
                 if utilization == 0:
-                    self.menu["💎 Opus Limit: Loading..."].title = "💎 Opus: 🟢 0% (Unused)"
+                    self.menu["🔷 Sonnet Limit: Loading..."].title = "🔷 Sonnet only: 🟢 0% (Unused)"
                 else:
                     time_remaining = self.format_time_remaining(reset_time)
                     if utilization >= 90:
@@ -792,11 +792,11 @@ class ClaudeUsageApp(rumps.App):
                         emoji = "🟡"
                     else:
                         emoji = "🟢"
-                    self.menu["💎 Opus Limit: Loading..."].title = (
-                        f"💎 Opus: {emoji} {utilization}% (Resets: {time_remaining})"
+                    self.menu["🔷 Sonnet Limit: Loading..."].title = (
+                        f"🔷 Sonnet only: {emoji} {utilization}% (Resets: {time_remaining})"
                     )
             else:
-                self.menu["💎 Opus Limit: Loading..."].title = "💎 Opus: No data"
+                self.menu["🔷 Sonnet Limit: Loading..."].title = "🔷 Sonnet only: No data"
 
             # Send notifications (if usage is high and hasn't been notified in 15 minutes)
             if 'five_hour' in data and data['five_hour']:
