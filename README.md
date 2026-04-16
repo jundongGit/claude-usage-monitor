@@ -25,7 +25,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 ## 📸 Preview
 
-**Status Bar:** `12% 4hr 38min`
+**Status Bar:** `12% 4h38m`
 
 **Menu:**
 ```
@@ -53,7 +53,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.4.0.app.zip`](../../releases/download/v1.4.0/ClaudeUsageMonitor-1.4.0.app.zip) (25 MB)
+1. **Download** [`ClaudeUsageMonitor-1.4.0.app.zip`](../../releases/download/v1.4.0/ClaudeUsageMonitor-1.4.0.app.zip) (14 MB)
 2. **Extract** the ZIP file (double-click)
 3. **Drag** `Claude Usage Monitor.app` to `/Applications` folder
 4. **Launch** from Applications
@@ -114,7 +114,7 @@ Cookie and Organization ID are extracted automatically from the cURL command.
 ### Status Bar Display
 
 The status bar shows current usage and reset countdown:
-- **12% 4hr 38min** - 5-hour limit at 12%, resets in 4hr 38min
+- **12% 4h38m** - 5-hour limit at 12%, resets in 4h 38m
 - **⚠️** - Not configured
 - **🔒** - Cookie expired, needs reset
 - **❌** - Network error or API failure
