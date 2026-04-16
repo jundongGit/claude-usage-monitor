@@ -4,7 +4,7 @@
 
 A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -14,7 +14,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 ## ✨ Features
 
 - 🎯 **Real-time Monitoring** - Auto-refresh every 1 minute
-- 📊 **Three Metrics** - 5-hour limit, All models, Opus limit
+- 📊 **Three Metrics** - 5-hour limit, All models, Sonnet only limit
 - 📈 **Today's Token Usage** - Daily input/output token tracking per model
 - 💰 **Cost Estimation** - Real-time cost calculation based on model pricing
 - ⏱️ **Countdown Display** - Shows usage and reset countdown in status bar
@@ -29,11 +29,11 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **Menu:**
 ```
-📊 Claude Usage Monitor v1.3.0
+📊 Claude Usage Monitor v1.4.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⏱️  5-Hour: 🟢 11% (Resets: 1h11m)
 🛠️  All Models: 🟢 43% (Resets: 2d17h)
-💎 Opus: No data
+🔷 Sonnet only: 🟢 3% (Resets: 1d2h)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📈 Today: 354.5K tokens
     ⬇️  Input: 3.3K
@@ -53,7 +53,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.3.0.app.zip`](../../releases/download/v1.3.0/ClaudeUsageMonitor-1.3.0.app.zip) (20 MB)
+1. **Download** [`ClaudeUsageMonitor-1.4.0.app.zip`](../../releases/download/v1.4.0/ClaudeUsageMonitor-1.4.0.app.zip) (25 MB)
 2. **Extract** the ZIP file (double-click)
 3. **Drag** `Claude Usage Monitor.app` to `/Applications` folder
 4. **Launch** from Applications
@@ -121,10 +121,10 @@ The status bar shows current usage and reset countdown:
 
 ### Menu Items
 
-- **📊 Claude Usage Monitor v1.3.0** - Title (non-clickable)
+- **📊 Claude Usage Monitor v1.4.0** - Title (non-clickable)
 - **⏱️  5-Hour Limit** - Shows 5-hour rolling window usage
 - **🛠️  All Models** - Shows 7-day all models usage
-- **💎 Opus Limit** - Shows 7-day Opus model usage
+- **🔷 Sonnet only** - Shows 7-day Sonnet model usage
 - **📈 Today** - Today's total token count
 - **⬇️ Input / ⬆️ Output** - Input and output token breakdown
 - **💰 Cost** - Estimated cost breakdown by model
@@ -308,9 +308,9 @@ GET https://claude.ai/api/organizations/{org_id}/usage
     "utilization": 51,
     "resets_at": "2025-10-29T21:59:59.601949+00:00"
   },
-  "seven_day_opus": {
-    "utilization": 0,
-    "resets_at": null
+  "seven_day_sonnet": {
+    "utilization": 3,
+    "resets_at": "2026-04-17T10:00:00+00:00"
   }
 }
 ```

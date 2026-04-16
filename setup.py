@@ -18,8 +18,8 @@ OPTIONS = {
         'CFBundleDisplayName': 'Claude Usage Monitor',
         'CFBundleGetInfoString': 'Monitor your Claude.ai usage in real-time',
         'CFBundleIdentifier': 'com.claude.usage.monitor',
-        'CFBundleVersion': '1.3.0',
-        'CFBundleShortVersionString': '1.3.0',
+        'CFBundleVersion': '1.4.0',
+        'CFBundleShortVersionString': '1.4.0',
         'NSHumanReadableCopyright': 'Copyright © 2025 Claude Usage Monitor Contributors. MIT License.',
         
         # Menu Bar App Settings

@@ -5,6 +5,21 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-04-16
+
+### 🔧 Changed
+
+#### Adapt to Claude.ai Usage API Change
+- **Third limit row**: Replaced "💎 Opus Limit" with "🔷 Sonnet only" — Claude.ai removed the dedicated `seven_day_opus` quota and added `seven_day_sonnet` (matches the new Usage page on claude.ai/settings/usage)
+- Without this update the third row always showed "No data"
+
+### 🛠️ Technical Details
+- API field rename: `seven_day_opus` → `seven_day_sonnet`
+- Menu item key renamed from `💎 Opus Limit` to `🔷 Sonnet Limit`
+- Dropped `install_requires` from `setup.py` — newer setuptools rejects it during py2app builds; dependencies are pinned via `requirements.txt` instead
+
+---
+
 ## [1.3.0] - 2026-04-12
 
 ### ✨ New Features
