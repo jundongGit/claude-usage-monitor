@@ -31,9 +31,9 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 ```
 📊 Claude Usage Monitor v1.4.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⏱️  5-Hour: 🟢 11% (Resets: 1h11m)
-🛠️  All Models: 🟢 43% (Resets: 2d17h)
-🔷 Sonnet only: 🟢 3% (Resets: 1d2h)
+⏱️  5-Hour: 🟢 11% (Resets: 1hr 11min)
+🛠️  All Models: 🟢 43% (Resets: 2d 17hr)
+🔷 Sonnet only: 🟢 3% (Resets: 1d 2hr)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📈 Today: 354.5K tokens
     ⬇️  Input: 3.3K
