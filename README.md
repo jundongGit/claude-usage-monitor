@@ -53,7 +53,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.4.0.app.zip`](../../releases/download/v1.4.0/ClaudeUsageMonitor-1.4.0.app.zip) (14 MB)
+1. **Download** [`ClaudeUsageMonitor-1.5.0.app.zip`](../../releases/download/v1.5.0/ClaudeUsageMonitor-1.5.0.app.zip) (20 MB)
 2. **Extract** the ZIP file (double-click)
 3. **Drag** `Claude Usage Monitor.app` to `/Applications` folder
 4. **Launch** from Applications
