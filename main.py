@@ -4,7 +4,7 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
@@ -18,20 +18,25 @@ import sys
 import time
 import webbrowser
 from AppKit import (NSApp, NSAlert, NSAlertFirstButtonReturn, NSFloatingWindowLevel,
-                     NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString)
+                     NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString,
+                     NSColor, NSFont, NSForegroundColorAttributeName, NSFontAttributeName)
+from Foundation import NSAttributedString
 
 
 # Model pricing ($/M tokens) — same as cc-statistics
 _PRICING = {
-    "opus": {"input": 15, "output": 75, "cache_read": 1.5, "cache_create": 18.75},
-    "sonnet": {"input": 3, "output": 15, "cache_read": 0.3, "cache_create": 3.75},
-    "haiku": {"input": 0.8, "output": 4, "cache_read": 0.08, "cache_create": 1.0},
+    # Current-generation rates. cache_read / cache_create follow the standard
+    # 0.1x / 1.25x of the input rate, except Fable's documented $0.25 cache read.
+    "fable": {"input": 10, "output": 50, "cache_read": 0.25, "cache_create": 12.5},
+    "opus": {"input": 5, "output": 25, "cache_read": 0.5, "cache_create": 6.25},
+    "sonnet": {"input": 2, "output": 10, "cache_read": 0.2, "cache_create": 2.5},
+    "haiku": {"input": 1, "output": 5, "cache_read": 0.1, "cache_create": 1.25},
 }
 
 
 def _match_pricing(model):
     lower = model.lower()
-    for key in ("opus", "haiku", "sonnet"):
+    for key in ("fable", "opus", "haiku", "sonnet"):
         if key in lower:
             return _PRICING[key]
     return _PRICING["sonnet"]
@@ -51,6 +56,121 @@ def _fmt_cost(n):
     if n >= 1:
         return f"${n:.2f}"
     return f"${n:.3f}"
+
+
+def _fmt_pct(value):
+    """Render a utilization percentage without a trailing .0"""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "0"
+    return str(int(number)) if number == int(number) else f"{number:.1f}"
+
+
+def _limit_emoji(utilization):
+    try:
+        number = float(utilization)
+    except (TypeError, ValueError):
+        number = 0.0
+    if number >= 90:
+        return "\U0001F534"
+    if number >= 70:
+        return "\U0001F7E1"
+    return "\U0001F7E2"
+
+
+def _set_label(menu_item, text):
+    """Set the text of a read-only (callback=None) menu row.
+
+    Such rows are disabled, and macOS draws disabled items in a washed-out gray
+    that is hard to read against the menu background. An attributed title with an
+    explicit labelColor keeps the row unclickable but renders it at full contrast
+    in both light and dark mode.
+    """
+    menu_item.title = text
+    try:
+        attributes = {
+            NSForegroundColorAttributeName: NSColor.labelColor(),
+            NSFontAttributeName: NSFont.menuFontOfSize_(0),
+        }
+        menu_item._menuitem.setAttributedTitle_(
+            NSAttributedString.alloc().initWithString_attributes_(text, attributes)
+        )
+    except Exception:
+        pass
+
+
+def _set_hidden(menu_item, hidden):
+    """Show/hide a menu row (rumps has no public API for this)"""
+    try:
+        menu_item._menuitem.setHidden_(bool(hidden))
+    except Exception:
+        pass
+
+
+def _normalize_limits(data):
+    """Extract session / weekly-all / per-model weekly limits from the usage payload.
+
+    Current API responses carry a `limits` array where per-model weekly caps show up
+    as kind="weekly_scoped" with the model name in scope.model.display_name
+    (e.g. "Fable"). Older responses only had the fixed seven_day_* fields, which are
+    kept as a fallback.
+
+    Returns (session, weekly_all, scoped_list); each entry is
+    {"utilization", "resets_at"} plus "label" for scoped ones.
+    """
+    session = None
+    weekly_all = None
+    scoped = []
+
+    for entry in data.get("limits") or []:
+        if not isinstance(entry, dict):
+            continue
+        item = {
+            "utilization": entry.get("percent") or 0,
+            "resets_at": entry.get("resets_at"),
+        }
+        kind = entry.get("kind")
+        if kind == "session" and session is None:
+            session = item
+        elif kind == "weekly_all" and weekly_all is None:
+            weekly_all = item
+        elif kind == "weekly_scoped":
+            model = (entry.get("scope") or {}).get("model") or {}
+            item["label"] = model.get("display_name") or "Model"
+            scoped.append(item)
+
+    def legacy(field):
+        value = data.get(field)
+        if not value:
+            return None
+        return {
+            "utilization": value.get("utilization", 0),
+            "resets_at": value.get("resets_at"),
+        }
+
+    if session is None:
+        session = legacy("five_hour")
+    if weekly_all is None:
+        weekly_all = legacy("seven_day")
+    if not scoped:
+        for field, label in (("seven_day_opus", "Opus"), ("seven_day_sonnet", "Sonnet")):
+            item = legacy(field)
+            if item:
+                item["label"] = label
+                scoped.append(item)
+
+    return session, weekly_all, scoped
+
+
+# Menu row keys (rumps keys a row by the title it was created with)
+MENU_SESSION = "\u23f1\ufe0f  5-Hour Limit: Loading..."
+MENU_WEEKLY_ALL = "\U0001F6E0\ufe0f  All Models: Loading..."
+MENU_SCOPED = (
+    "\U0001F537 Model Limit 1: Loading...",
+    "\U0001F537 Model Limit 2: Loading...",
+    "\U0001F537 Model Limit 3: Loading...",
+)
 
 
 def get_today_token_stats():
@@ -177,9 +297,11 @@ class ClaudeUsageApp(rumps.App):
         self.menu = [
             rumps.MenuItem(f"📊 Claude Usage Monitor v{__version__}", callback=None),
             rumps.separator,
-            rumps.MenuItem("⏱️  5-Hour Limit: Loading...", callback=None),
-            rumps.MenuItem("🛠️  All Models: Loading...", callback=None),
-            rumps.MenuItem("🔷 Sonnet Limit: Loading...", callback=None),
+            rumps.MenuItem(MENU_SESSION, callback=None),
+            rumps.MenuItem(MENU_WEEKLY_ALL, callback=None),
+        ] + [
+            rumps.MenuItem(key, callback=None) for key in MENU_SCOPED
+        ] + [
             rumps.separator,
             rumps.MenuItem("📈 Today: Loading...", callback=None),
             rumps.MenuItem("    ⬇️  Input: ...", callback=None),
@@ -195,6 +317,12 @@ class ClaudeUsageApp(rumps.App):
 
         # Update auto-start menu status (must be after menu creation)
         self.update_autostart_menu()
+
+        # Read-only rows are disabled and would render gray until the first refresh
+        for key in (f"📊 Claude Usage Monitor v{__version__}", MENU_SESSION, MENU_WEEKLY_ALL,
+                    *MENU_SCOPED, "📈 Today: Loading...", "    ⬇️  Input: ...",
+                    "    ⬆️  Output: ...", "💰 Cost: Loading..."):
+            _set_label(self.menu[key], self.menu[key].title)
 
         # First run guide
         if self.first_run:
@@ -308,6 +436,28 @@ class ClaudeUsageApp(rumps.App):
                 return f"{hours}hr {minutes}min"
             else:
                 return f"{minutes}min"
+        except Exception as e:
+            print(f"Time parse error: {e}")
+            return "Parse failed"
+
+    def format_reset_at(self, reset_time_str):
+        """Format an absolute reset moment in local time, e.g. "Sun 10:00 PM".
+
+        Weekly limits reset on a fixed weekday; claude.ai/settings/usage shows that
+        weekday rather than a multi-day countdown, so the menu matches it.
+        """
+        if not reset_time_str:
+            return "Unused"
+
+        try:
+            reset_time = datetime.fromisoformat(reset_time_str.replace('+00:00', '+0000'))
+            # The API computes resets_at relative to "now", so it jitters either side
+            # of the minute boundary (09:59:59.7 vs 10:00:00.0). Round to the nearest
+            # minute so the row matches claude.ai instead of flipping between 9:59/10:00.
+            local_time = (reset_time + timedelta(seconds=30)).astimezone()
+            hour = local_time.hour % 12 or 12
+            suffix = "AM" if local_time.hour < 12 else "PM"
+            return f"{local_time.strftime('%a')} {hour}:{local_time.strftime('%M')} {suffix}"
         except Exception as e:
             print(f"Time parse error: {e}")
             return "Parse failed"
@@ -638,9 +788,9 @@ class ClaudeUsageApp(rumps.App):
 
         if not self.cookie or not self.org_id:
             self.title = "⚠️"
-            self.menu["⏱️  5-Hour Limit: Loading..."].title = "⏱️  5-Hour: Not configured"
-            self.menu["🛠️  All Models: Loading..."].title = "🛠️  All Models: Not configured"
-            self.menu["🔷 Sonnet Limit: Loading..."].title = "🔷 Sonnet only: Not configured"
+            _set_label(self.menu[MENU_SESSION], "⏱️  5-Hour: Not configured")
+            _set_label(self.menu[MENU_WEEKLY_ALL], "🛠️  All Models: Not configured")
+            _set_label(self.menu[MENU_SCOPED[0]], "🔷 Model Limits: Not configured")
             return
 
         try:
@@ -662,11 +812,11 @@ class ClaudeUsageApp(rumps.App):
                 )
             else:
                 self.title = "❌"
-                self.menu["⏱️  5-Hour Limit: Loading..."].title = f"Error: HTTP {response.status_code}"
+                _set_label(self.menu[MENU_SESSION], f"Error: HTTP {response.status_code}")
 
         except Exception as e:
             self.title = "❌"
-            self.menu["⏱️  5-Hour Limit: Loading..."].title = f"Error: {str(e)}"
+            _set_label(self.menu[MENU_SESSION], f"Error: {str(e)}")
             print(f"Request failed: {e}")
 
     def update_token_stats(self):
@@ -675,10 +825,10 @@ class ClaudeUsageApp(rumps.App):
             model_usage = get_today_token_stats()
 
             if not model_usage:
-                self.menu["📈 Today: Loading..."].title = "📈 Today: 0 tokens"
-                self.menu["    ⬇️  Input: ..."].title = "    ⬇️  Input: 0"
-                self.menu["    ⬆️  Output: ..."].title = "    ⬆️  Output: 0"
-                self.menu["💰 Cost: Loading..."].title = "💰 Cost: $0.000"
+                _set_label(self.menu["📈 Today: Loading..."], "📈 Today: 0 tokens")
+                _set_label(self.menu["    ⬇️  Input: ..."], "    ⬇️  Input: 0")
+                _set_label(self.menu["    ⬆️  Output: ..."], "    ⬆️  Output: 0")
+                _set_label(self.menu["💰 Cost: Loading..."], "💰 Cost: $0.000")
                 return
 
             # Calculate totals
@@ -703,7 +853,9 @@ class ClaudeUsageApp(rumps.App):
                 # Shorten model name
                 short_name = model.split("/")[-1] if "/" in model else model
                 # Pick emoji for model tier
-                if "opus" in model.lower():
+                if "fable" in model.lower():
+                    icon = "✨"
+                elif "opus" in model.lower():
                     icon = "💎"
                 elif "haiku" in model.lower():
                     icon = "⚡"
@@ -713,13 +865,13 @@ class ClaudeUsageApp(rumps.App):
 
             # Token breakdown (input + output only, exclude cache)
             display_total = total_input + total_output
-            self.menu["📈 Today: Loading..."].title = f"📈 Today: {_fmt_tokens(display_total)} tokens"
-            self.menu["    ⬇️  Input: ..."].title = f"    ⬇️  Input: {_fmt_tokens(total_input)}"
-            self.menu["    ⬆️  Output: ..."].title = f"    ⬆️  Output: {_fmt_tokens(total_output)}"
+            _set_label(self.menu["📈 Today: Loading..."], f"📈 Today: {_fmt_tokens(display_total)} tokens")
+            _set_label(self.menu["    ⬇️  Input: ..."], f"    ⬇️  Input: {_fmt_tokens(total_input)}")
+            _set_label(self.menu["    ⬆️  Output: ..."], f"    ⬆️  Output: {_fmt_tokens(total_output)}")
 
             # Cost with model breakdown
             cost_detail = "  ".join(cost_parts[:3])
-            self.menu["💰 Cost: Loading..."].title = f"💰 Cost: {_fmt_cost(total_cost)}  ({cost_detail})"
+            _set_label(self.menu["💰 Cost: Loading..."], f"💰 Cost: {_fmt_cost(total_cost)}  ({cost_detail})")
 
         except Exception as e:
             print(f"Token stats update failed: {e}")
@@ -731,89 +883,75 @@ class ClaudeUsageApp(rumps.App):
         try:
             print(f"API Response: {json.dumps(data, indent=2, ensure_ascii=False)}")
 
+            session, weekly_all, scoped = _normalize_limits(data)
+
             # 5-hour limit (current session)
-            if 'five_hour' in data and data['five_hour']:
-                five_hour = data['five_hour']
-                utilization = five_hour.get('utilization', 0)
-                reset_time = five_hour.get('resets_at')
-                time_remaining = self.format_time_remaining(reset_time)
-                time_short = self.format_time_short(reset_time)
+            if session:
+                utilization = session["utilization"]
+                time_remaining = self.format_time_remaining(session["resets_at"])
+                time_short = self.format_time_short(session["resets_at"])
 
                 # Status bar shows 5-hour usage and countdown
-                self.title = f"{int(utilization)}% {time_short}"
+                self.title = f"{int(float(utilization))}% {time_short}"
 
-                # Show different colored emoji based on usage
-                if utilization >= 90:
-                    emoji = "🔴"
-                elif utilization >= 70:
-                    emoji = "🟡"
-                else:
-                    emoji = "🟢"
-
-                self.menu["⏱️  5-Hour Limit: Loading..."].title = (
-                    f"⏱️  5-Hour: {emoji} {utilization}% (Resets: {time_remaining})"
+                _set_label(
+                    self.menu[MENU_SESSION],
+                    f"⏱️  5-Hour: {_limit_emoji(utilization)} {_fmt_pct(utilization)}% "
+                    f"(Resets in {time_remaining})",
                 )
             else:
-                self.menu["⏱️  5-Hour Limit: Loading..."].title = "⏱️  5-Hour: No data"
+                _set_label(self.menu[MENU_SESSION], "⏱️  5-Hour: No data")
 
             # All models (7-day limit)
-            if 'seven_day' in data and data['seven_day']:
-                seven_day = data['seven_day']
-                utilization = seven_day.get('utilization', 0)
-                reset_time = seven_day.get('resets_at')
-                time_remaining = self.format_time_remaining(reset_time)
-
-                if utilization >= 90:
-                    emoji = "🔴"
-                elif utilization >= 70:
-                    emoji = "🟡"
-                else:
-                    emoji = "🟢"
-
-                self.menu["🛠️  All Models: Loading..."].title = (
-                    f"🛠️  All Models: {emoji} {utilization}% (Resets: {time_remaining})"
+            if weekly_all:
+                utilization = weekly_all["utilization"]
+                reset_at = self.format_reset_at(weekly_all["resets_at"])
+                _set_label(
+                    self.menu[MENU_WEEKLY_ALL],
+                    f"🛠️  All Models: {_limit_emoji(utilization)} {_fmt_pct(utilization)}% "
+                    f"(Resets {reset_at})",
                 )
             else:
-                self.menu["🛠️  All Models: Loading..."].title = "🛠️  All Models: No data"
+                _set_label(self.menu[MENU_WEEKLY_ALL], "🛠️  All Models: No data")
 
-            # Sonnet limit
-            if 'seven_day_sonnet' in data and data['seven_day_sonnet']:
-                sonnet = data['seven_day_sonnet']
-                utilization = sonnet.get('utilization', 0)
-                reset_time = sonnet.get('resets_at')
-
-                if utilization == 0:
-                    self.menu["🔷 Sonnet Limit: Loading..."].title = "🔷 Sonnet only: 🟢 0% (Unused)"
-                else:
-                    time_remaining = self.format_time_remaining(reset_time)
-                    if utilization >= 90:
-                        emoji = "🔴"
-                    elif utilization >= 70:
-                        emoji = "🟡"
+            # Per-model weekly limits (Fable, Opus, ... — names come from the API)
+            for index, key in enumerate(MENU_SCOPED):
+                row = self.menu[key]
+                if index < len(scoped):
+                    limit = scoped[index]
+                    utilization = limit["utilization"]
+                    if float(utilization) == 0 and not limit["resets_at"]:
+                        detail = "(Unused)"
                     else:
-                        emoji = "🟢"
-                    self.menu["🔷 Sonnet Limit: Loading..."].title = (
-                        f"🔷 Sonnet only: {emoji} {utilization}% (Resets: {time_remaining})"
+                        detail = f"(Resets {self.format_reset_at(limit['resets_at'])})"
+                    _set_label(
+                        row,
+                        f"🔷 {limit['label']}: {_limit_emoji(utilization)} "
+                        f"{_fmt_pct(utilization)}% {detail}",
                     )
-            else:
-                self.menu["🔷 Sonnet Limit: Loading..."].title = "🔷 Sonnet only: No data"
+                    _set_hidden(row, False)
+                elif index == 0:
+                    _set_label(row, "🔷 Model Limits: No data")
+                    _set_hidden(row, False)
+                else:
+                    _set_hidden(row, True)
 
             # Send notifications (if usage is high and hasn't been notified in 15 minutes)
-            if 'five_hour' in data and data['five_hour']:
-                utilization = data['five_hour'].get('utilization', 0)
+            if session:
+                utilization = float(session["utilization"])
 
                 # Send different level notifications based on thresholds
                 if utilization >= 95 and self.should_notify('usage_critical'):
                     rumps.notification(
                         title="⚠️ Claude Usage Critical Warning",
                         subtitle="5-hour limit nearly exhausted",
-                        message=f"Current usage: {utilization}%, please reduce usage immediately!"
+                        message=f"Current usage: {_fmt_pct(utilization)}%, please reduce usage immediately!"
                     )
                 elif utilization >= 90 and self.should_notify('usage_high'):
                     rumps.notification(
                         title="Claude Usage Warning",
                         subtitle="5-hour limit approaching",
-                        message=f"Current usage: {utilization}%, please monitor your usage"
+                        message=f"Current usage: {_fmt_pct(utilization)}%, please monitor your usage"
                     )
 
         except Exception as e:
@@ -821,7 +959,7 @@ class ClaudeUsageApp(rumps.App):
             import traceback
             traceback.print_exc()
             self.title = "❌"
-            self.menu["⏱️  5-Hour Limit: Loading..."].title = f"Parse error: {str(e)}"
+            _set_label(self.menu[MENU_SESSION], f"Parse error: {str(e)}")
 
 
 if __name__ == "__main__":

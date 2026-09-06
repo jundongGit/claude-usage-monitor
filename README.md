@@ -4,7 +4,7 @@
 
 A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
-![Version](https://img.shields.io/badge/version-1.4.0-blue)
+![Version](https://img.shields.io/badge/version-1.5.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -14,7 +14,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 ## ✨ Features
 
 - 🎯 **Real-time Monitoring** - Auto-refresh every 1 minute
-- 📊 **Three Metrics** - 5-hour limit, All models, Sonnet only limit
+- 📊 **Three Metrics** - 5-hour limit, All models, per-model weekly limit (Fable)
 - 📈 **Today's Token Usage** - Daily input/output token tracking per model
 - 💰 **Cost Estimation** - Real-time cost calculation based on model pricing
 - ⏱️ **Countdown Display** - Shows usage and reset countdown in status bar
@@ -25,20 +25,20 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 ## 📸 Preview
 
-**Status Bar:** `12% 4h38m`
+**Status Bar:** `14% 2h33m`
 
 **Menu:**
 ```
-📊 Claude Usage Monitor v1.4.0
+📊 Claude Usage Monitor v1.5.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⏱️  5-Hour: 🟢 11% (Resets: 1hr 11min)
-🛠️  All Models: 🟢 43% (Resets: 2d 17hr)
-🔷 Sonnet only: 🟢 3% (Resets: 1d 2hr)
+⏱️  5-Hour: 🟢 14% (Resets in 2hr 33min)
+🛠️  All Models: 🟢 4% (Resets Sun 10:00 PM)
+🔷 Fable: 🟢 3% (Resets Sun 10:00 PM)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📈 Today: 354.5K tokens
-    ⬇️  Input: 3.3K
-    ⬆️  Output: 351.2K
-💰 Cost: $234 (💎 claude-opus-4-6 $234  🟢 unknown $0.000)
+📈 Today: 228.5K tokens
+    ⬇️  Input: 532
+    ⬆️  Output: 228.0K
+💰 Cost: $85.00 (💎 claude-opus-5 $80.95  ✨ claude-fable-5-1 $4.06)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔄 Refresh
 ⚙️  Settings
@@ -121,10 +121,10 @@ The status bar shows current usage and reset countdown:
 
 ### Menu Items
 
-- **📊 Claude Usage Monitor v1.4.0** - Title (non-clickable)
+- **📊 Claude Usage Monitor v1.5.0** - Title (non-clickable)
 - **⏱️  5-Hour Limit** - Shows 5-hour rolling window usage
 - **🛠️  All Models** - Shows 7-day all models usage
-- **🔷 Sonnet only** - Shows 7-day Sonnet model usage
+- **🔷 <Model>** - Shows the 7-day per-model limit reported by the API (currently Fable); up to three such rows
 - **📈 Today** - Today's total token count
 - **⬇️ Input / ⬆️ Output** - Input and output token breakdown
 - **💰 Cost** - Estimated cost breakdown by model
@@ -308,16 +308,34 @@ GET https://claude.ai/api/organizations/{org_id}/usage
     "utilization": 51,
     "resets_at": "2025-10-29T21:59:59.601949+00:00"
   },
-  "seven_day_sonnet": {
-    "utilization": 3,
-    "resets_at": "2026-04-17T10:00:00+00:00"
-  }
+  "limits": [
+    {
+      "kind": "session",
+      "percent": 12,
+      "resets_at": "2026-09-07T02:00:00+00:00",
+      "scope": null
+    },
+    {
+      "kind": "weekly_all",
+      "percent": 4,
+      "resets_at": "2026-09-13T10:00:00+00:00",
+      "scope": null
+    },
+    {
+      "kind": "weekly_scoped",
+      "percent": 3,
+      "resets_at": "2026-09-13T10:00:00+00:00",
+      "scope": { "model": { "id": null, "display_name": "Fable" } }
+    }
+  ]
 }
 ```
 
 **Field Descriptions:**
-- `utilization`: Usage percentage (0-100)
+- `limits[]`: current source of truth. `kind` is `session` (5-hour), `weekly_all`, or `weekly_scoped`; for `weekly_scoped` the model name is at `scope.model.display_name`.
+- `utilization` / `percent`: Usage percentage (0-100)
 - `resets_at`: Reset time (ISO 8601 format, UTC timezone)
+- `five_hour` / `seven_day` / `seven_day_sonnet`: legacy top-level fields, still read as a fallback. `seven_day_sonnet` now returns `null`.
 
 ## 🤝 Contributing
 

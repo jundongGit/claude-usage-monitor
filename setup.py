@@ -3,7 +3,12 @@ setup.py for Claude Usage Monitor
 Build macOS .app bundle using py2app
 """
 
+import re
+
 from setuptools import setup
+
+# Single source of truth for the version: main.py's __version__
+VERSION = re.search(r'^__version__ = "(.*)"', open('main.py').read(), re.M).group(1)
 
 APP = ['main.py']
 DATA_FILES = []
@@ -18,8 +23,8 @@ OPTIONS = {
         'CFBundleDisplayName': 'Claude Usage Monitor',
         'CFBundleGetInfoString': 'Monitor your Claude.ai usage in real-time',
         'CFBundleIdentifier': 'com.claude.usage.monitor',
-        'CFBundleVersion': '1.4.0',
-        'CFBundleShortVersionString': '1.4.0',
+        'CFBundleVersion': VERSION,
+        'CFBundleShortVersionString': VERSION,
         'NSHumanReadableCopyright': 'Copyright © 2025 Claude Usage Monitor Contributors. MIT License.',
         
         # Menu Bar App Settings

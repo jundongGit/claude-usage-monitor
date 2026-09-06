@@ -15,7 +15,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Version from main.py
-VERSION="1.0.0"
+VERSION=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' main.py)
 APP_NAME="Claude Usage Monitor"
 DMG_NAME="ClaudeUsageMonitor-${VERSION}"
 

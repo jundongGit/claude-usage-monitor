@@ -5,6 +5,30 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-07
+
+### ✨ Added
+- **Per-model weekly limits driven by the API**: the third row now reads the `limits` array returned by `/usage` and renders every `kind: "weekly_scoped"` entry with the model name supplied by the API (currently **Fable**, matching claude.ai/settings/usage). Up to three such rows are supported; unused rows stay hidden.
+- **Fable pricing** in the cost estimate — `claude-fable-5-1` was previously falling back to Sonnet rates, understating its cost roughly 3x. Now $10 / $50 per million input / output tokens, $0.25 cache read.
+
+### 🔧 Changed
+- Limit parsing was rewritten around `_normalize_limits()`, which prefers the `limits` array and falls back to the legacy `five_hour` / `seven_day` / `seven_day_opus` / `seven_day_sonnet` fields.
+- Percentages render without a trailing `.0` (`12%`, not `12.0%`) now that the API reports integers.
+- Fable rows in the cost breakdown use the ✨ icon.
+- **Model pricing refreshed to current rates** ($ per million input / output tokens) — the table still held previous-generation numbers, overstating every estimate:
+
+  | Model | Was | Now |
+  |---|---|---|
+  | Opus 5 | 15 / 75 | 5 / 25 |
+  | Sonnet 5 | 3 / 15 | 2 / 10 |
+  | Haiku 4.5 | 0.8 / 4 | 1 / 5 |
+  | Fable 5.1 | (fell back to Sonnet) | 10 / 50 |
+
+### 🐛 Fixed
+- **Weekly rows showed a multi-day countdown** (`Resets: 6d 10hr`) instead of the weekday claude.ai displays. They now read `Resets Sun 10:00 PM` in local time, rounded to the minute — `resets_at` is computed relative to the request, so it jitters across the minute boundary. The 5-hour row keeps its countdown (`Resets in 2hr 33min`), matching claude.ai.
+- **Read-only menu rows were barely legible.** Rows created with `callback=None` are disabled, and macOS draws disabled items in a washed-out gray. They now carry an attributed title with an explicit `labelColor`, so they stay unclickable but render at full contrast in light and dark mode.
+- The third row showed "Sonnet only: No data" on every account: Claude.ai now returns `seven_day_sonnet: null` and moved the per-model quota into the `limits` array.
+
 ## [1.4.0] - 2026-04-16
 
 ### 🔧 Changed
