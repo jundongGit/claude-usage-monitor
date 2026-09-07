@@ -18,9 +18,7 @@ import sys
 import time
 import webbrowser
 from AppKit import (NSApp, NSAlert, NSAlertFirstButtonReturn, NSFloatingWindowLevel,
-                     NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString,
-                     NSColor, NSFont, NSForegroundColorAttributeName, NSFontAttributeName)
-from Foundation import NSAttributedString
+                     NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString)
 
 
 # Model pricing ($/M tokens) — same as cc-statistics
@@ -82,20 +80,19 @@ def _limit_emoji(utilization):
 def _set_label(menu_item, text):
     """Set the text of a read-only (callback=None) menu row.
 
-    Such rows are disabled, and macOS draws disabled items in a washed-out gray
-    that is hard to read against the menu background. An attributed title with an
-    explicit labelColor keeps the row unclickable but renders it at full contrast
-    in both light and dark mode.
+    Pairs with setAutoenablesItems_(False) in __init__, which is what actually keeps
+    these rows readable: AppKit's automatic menu enabling disables every item without
+    an action and draws disabled items in a washed-out gray.
+
+    Deliberately no attributedTitle here. An explicit NSColor.labelColor() resolves
+    against the *process* appearance, which for a menu bar app is light even while the
+    menu itself draws dark — so it painted dark text on the dark menu, readable only
+    under the hover highlight. A plain title lets AppKit pick the correct menu text
+    color, exactly as it does for the clickable rows below.
     """
     menu_item.title = text
     try:
-        attributes = {
-            NSForegroundColorAttributeName: NSColor.labelColor(),
-            NSFontAttributeName: NSFont.menuFontOfSize_(0),
-        }
-        menu_item._menuitem.setAttributedTitle_(
-            NSAttributedString.alloc().initWithString_attributes_(text, attributes)
-        )
+        menu_item._menuitem.setAttributedTitle_(None)
     except Exception:
         pass
 
@@ -318,7 +315,17 @@ class ClaudeUsageApp(rumps.App):
         # Update auto-start menu status (must be after menu creation)
         self.update_autostart_menu()
 
-        # Read-only rows are disabled and would render gray until the first refresh
+        # AppKit's automatic menu enabling disables every item without an action, and
+        # draws disabled items in a washed-out gray — that dimming is applied on top of
+        # any attributed title, so setting a color alone is not enough. Turning it off
+        # leaves the info rows at their default enabled state (they still do nothing when
+        # clicked, having no action) and lets them draw at full contrast.
+        try:
+            self.menu._menu.setAutoenablesItems_(False)
+        except Exception as e:
+            print(f"Could not disable automatic menu enabling: {e}")
+
+        # Read-only rows would render gray until the first refresh
         for key in (f"📊 Claude Usage Monitor v{__version__}", MENU_SESSION, MENU_WEEKLY_ALL,
                     *MENU_SCOPED, "📈 Today: Loading...", "    ⬇️  Input: ...",
                     "    ⬆️  Output: ...", "💰 Cost: Loading..."):

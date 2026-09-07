@@ -26,7 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Fixed
 - **Weekly rows showed a multi-day countdown** (`Resets: 6d 10hr`) instead of the weekday claude.ai displays. They now read `Resets Sun 10:00 PM` in local time, rounded to the minute — `resets_at` is computed relative to the request, so it jitters across the minute boundary. The 5-hour row keeps its countdown (`Resets in 2hr 33min`), matching claude.ai.
-- **Read-only menu rows were barely legible.** Rows created with `callback=None` are disabled, and macOS draws disabled items in a washed-out gray. They now carry an attributed title with an explicit `labelColor`, so they stay unclickable but render at full contrast in light and dark mode.
+- **Read-only menu rows were barely legible.** AppKit's automatic menu enabling disables every item without an action, and disabled items are drawn in a washed-out gray. The menu now sets `autoenablesItems = NO`, so the info rows keep the same text color as the clickable rows below them. They still do nothing when clicked.
+
+  Worth knowing if you try to fix this with a color: an `attributedTitle` using `NSColor.labelColor()` makes it *worse*. That dynamic color resolves against the process appearance, which for a menu bar app is light even while the menu itself draws dark — so it paints dark text on a dark menu, legible only under the hover highlight. A plain title lets AppKit pick the right color.
 - The third row showed "Sonnet only: No data" on every account: Claude.ai now returns `seven_day_sonnet: null` and moved the per-model quota into the `limits` array.
 
 ## [1.4.0] - 2026-04-16
