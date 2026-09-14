@@ -4,7 +4,7 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
@@ -15,10 +15,17 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import os
 import sys
+import threading
 import time
 import webbrowser
+
+# py2app runs main.py out of Contents/Resources without putting that directory on
+# sys.path, so a sibling module is not importable until we add it ourselves.
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import usage_report  # noqa: E402
 from AppKit import (NSApp, NSAlert, NSAlertFirstButtonReturn, NSFloatingWindowLevel,
                      NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString)
+from PyObjCTools import AppHelper
 
 
 # Model pricing ($/M tokens) — same as cc-statistics
@@ -163,6 +170,7 @@ def _normalize_limits(data):
 # Menu row keys (rumps keys a row by the title it was created with)
 MENU_SESSION = "\u23f1\ufe0f  5-Hour Limit: Loading..."
 MENU_WEEKLY_ALL = "\U0001F6E0\ufe0f  All Models: Loading..."
+MENU_HISTORY = "\U0001F5D3\ufe0f  Usage History"
 MENU_SCOPED = (
     "\U0001F537 Model Limit 1: Loading...",
     "\U0001F537 Model Limit 2: Loading...",
@@ -305,6 +313,7 @@ class ClaudeUsageApp(rumps.App):
             rumps.MenuItem("    ⬆️  Output: ...", callback=None),
             rumps.MenuItem("💰 Cost: Loading...", callback=None),
             rumps.separator,
+            rumps.MenuItem(MENU_HISTORY, callback=self.open_usage_history),
             rumps.MenuItem("🔄 Refresh", callback=self.refresh_usage),
             rumps.MenuItem("⚙️  Settings", callback=self.set_config),
             rumps.MenuItem("🚀 Auto-start on Login", callback=self.toggle_autostart),
@@ -343,6 +352,8 @@ class ClaudeUsageApp(rumps.App):
         self._edit_menu_timer.start()
 
         # Set timer to refresh every 1 minute
+        self.trim_snapshot_history()
+
         self.timer = rumps.Timer(self.refresh_usage, 60)
         self.timer.start()
 
@@ -788,6 +799,86 @@ class ClaudeUsageApp(rumps.App):
         }
 
     @rumps.clicked("🔄 Refresh")
+    def record_snapshot(self, weekly_all, session):
+        """Append the current weekly all-models utilization to the history file.
+
+        The API only ever reports the *current* value, so a history of the weekly
+        limit can only be the one this app writes down as it goes.
+        """
+        try:
+            pct = round(float(weekly_all["utilization"]), 2)
+        except (KeyError, TypeError, ValueError):
+            return
+
+        now = time.time()
+        last = getattr(self, "_last_snapshot", None)
+        # One row whenever the number moves, plus a heartbeat every 15 minutes so
+        # a quiet week still draws a line rather than a single dot.
+        if last and last["pct"] == pct and now - last["at"] < 900:
+            return
+
+        row = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "all_models_pct": pct,
+            "resets_at": weekly_all.get("resets_at"),
+        }
+        if session:
+            try:
+                row["session_pct"] = round(float(session["utilization"]), 2)
+            except (KeyError, TypeError, ValueError):
+                pass
+
+        try:
+            with open(usage_report.HISTORY_FILE, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(row) + "\n")
+            self._last_snapshot = {"pct": pct, "at": now}
+        except OSError as e:
+            print(f"Snapshot write failed: {e}")
+
+    def trim_snapshot_history(self):
+        """Keep the history file bounded; a heartbeat every 15 min is ~35k rows a year."""
+        try:
+            path = usage_report.HISTORY_FILE
+            if not path.exists() or path.stat().st_size < 4_000_000:
+                return
+            lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+            path.write_text("".join(lines[-20000:]), encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as e:
+            print(f"History trim failed: {e}")
+
+    def open_usage_history(self, _):
+        """Build the HTML usage report off the main thread, then open it."""
+        if getattr(self, "_report_running", False):
+            return
+        self._report_running = True
+        _set_label(self.menu[MENU_HISTORY], "\U0001F5D3\ufe0f  Building report...")
+
+        def work():
+            try:
+                path = usage_report.generate_report()
+            except Exception as e:
+                print(f"Report generation failed: {e}")
+                import traceback
+                traceback.print_exc()
+                AppHelper.callAfter(self._finish_report, None, str(e))
+                return
+            AppHelper.callAfter(self._finish_report, path, None)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _finish_report(self, path, error):
+        """Main-thread half of open_usage_history."""
+        self._report_running = False
+        _set_label(self.menu[MENU_HISTORY], MENU_HISTORY)
+        if error:
+            rumps.notification(
+                title="Usage History",
+                subtitle="Report could not be generated",
+                message=error,
+            )
+            return
+        webbrowser.open(path.as_uri())
+
     def refresh_usage(self, _):
         """Refresh usage data"""
         # Always update token stats (reads local files, no API needed)
@@ -892,14 +983,17 @@ class ClaudeUsageApp(rumps.App):
 
             session, weekly_all, scoped = _normalize_limits(data)
 
+            # The status bar tracks the weekly all-models limit (set below); the 5-hour
+            # figure is only the fallback for the window where weekly data is missing.
+            status_title = None
+
             # 5-hour limit (current session)
             if session:
                 utilization = session["utilization"]
                 time_remaining = self.format_time_remaining(session["resets_at"])
                 time_short = self.format_time_short(session["resets_at"])
 
-                # Status bar shows 5-hour usage and countdown
-                self.title = f"{int(float(utilization))}% {time_short}"
+                status_title = f"{int(float(utilization))}% {time_short}"
 
                 _set_label(
                     self.menu[MENU_SESSION],
@@ -913,6 +1007,14 @@ class ClaudeUsageApp(rumps.App):
             if weekly_all:
                 utilization = weekly_all["utilization"]
                 reset_at = self.format_reset_at(weekly_all["resets_at"])
+                self.record_snapshot(weekly_all, session)
+
+                # Status bar shows the weekly all-models usage and countdown, e.g. "7% 6d7h"
+                status_title = (
+                    f"{int(float(utilization))}% "
+                    f"{self.format_time_short(weekly_all['resets_at'])}"
+                ).strip()
+
                 _set_label(
                     self.menu[MENU_WEEKLY_ALL],
                     f"🛠️  All Models: {_limit_emoji(utilization)} {_fmt_pct(utilization)}% "
@@ -920,6 +1022,9 @@ class ClaudeUsageApp(rumps.App):
                 )
             else:
                 _set_label(self.menu[MENU_WEEKLY_ALL], "🛠️  All Models: No data")
+
+            if status_title:
+                self.title = status_title
 
             # Per-model weekly limits (Fable, Opus, ... — names come from the API)
             for index, key in enumerate(MENU_SCOPED):

@@ -22,7 +22,7 @@ OPTIONS = {
         'CFBundleName': 'Claude Usage Monitor',
         'CFBundleDisplayName': 'Claude Usage Monitor',
         'CFBundleGetInfoString': 'Monitor your Claude.ai usage in real-time',
-        'CFBundleIdentifier': 'com.claude.usage.monitor',
+        'CFBundleIdentifier': 'com.freeai.claudeusagemonitor',  # macOS wedged the status item position for the old id
         'CFBundleVersion': VERSION,
         'CFBundleShortVersionString': VERSION,
         'NSHumanReadableCopyright': 'Copyright © 2025 Claude Usage Monitor Contributors. MIT License.',
@@ -40,6 +40,7 @@ OPTIONS = {
 
     # Include all dependencies
     'includes': [
+        'usage_report',
         'rumps',
         'requests',
         'json',

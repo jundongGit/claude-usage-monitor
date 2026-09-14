@@ -5,6 +5,19 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-09-14
+
+### ✨ Added
+- **Usage History report.** A new menu row builds a standalone HTML page and opens it in the default browser. It charts usage by **quota week** — periods that run from one weekly reset to the next, not calendar weeks — with a stacked column per week (cost or tokens), spend by model, spend by working directory, and per-week and per-day tables. The page is self-contained: no CDN, no network access, and it works offline.
+- **`Est.` column for weeks recorded before snapshots existed.** Since the API never reports past utilization, those weeks extrapolate a percentage from estimated spend, calibrated on the ratio observed in weeks that do have snapshots. It is labelled `Est.`, prefixed `~`, and the table states the ratio, the assumption (that the limit tracks per-model pricing) and that it rests on very few observations.
+- **Weekly limit snapshots.** The `/usage` API only ever reports the *current* All Models utilization, so there was no history to chart. The app now appends each observed value to `~/.claude_usage_history.jsonl` (one row per change, plus a 15-minute heartbeat) and the report draws one line per quota week from it. History therefore starts accumulating from this version onward; retrospective weeks show `—` for peak utilization.
+
+### 🐛 Fixed
+- **The status bar item stopped appearing after repeated restarts.** macOS had stored a preferred position of 3296 for the old bundle identifier — beyond the 2560-wide main display — and placed the item's window off screen at `(0, -7)` while still reporting `isVisible() == true`. Clearing the preference domain and restarting `cfprefsd` / `ControlCenter` / `SystemUIServer` did not reset it, so the bundle identifier moved to `com.freeai.claudeusagemonitor`. The LaunchAgent label is unchanged, so existing auto-start keeps working; notification permission is per bundle id and needs granting again.
+
+### 🔧 Changed
+- **The status bar now tracks the weekly All Models limit** instead of the 5-hour window — e.g. `7% 6d6h`, the percentage plus time to the weekly reset. The 5-hour figure stays in the menu and is used in the status bar only when the API returns no weekly data.
+
 ## [1.5.0] - 2026-09-07
 
 ### ✨ Added

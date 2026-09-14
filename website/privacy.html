@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Usage Monitor for Claude</title>
+  <link rel="icon" href="favicon-32.png">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           max-width: 720px; margin: 0 auto; padding: 48px 24px; line-height: 1.7; color: #1d1d1f; }
+    h1 { font-size: 28px; } h2 { font-size: 20px; margin-top: 36px; }
+    .updated { color: #86868b; font-size: 14px; }
+    code { background: #f5f5f7; padding: 2px 6px; border-radius: 4px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Usage Monitor for Claude · Last updated: June 12, 2026</p>
+
+  <h2>Summary</h2>
+  <p><strong>We do not collect, store, or transmit any of your data.</strong>
+  Usage Monitor for Claude has no servers, no analytics, no tracking, and no third-party SDKs.</p>
+
+  <h2>What the app does with your data</h2>
+  <ul>
+    <li><strong>Session credential:</strong> To display your usage limits, you provide a session
+        cookie for your own claude.ai account. It is stored only in the macOS Keychain on your Mac
+        and is sent only to <code>claude.ai</code> over HTTPS to read your usage data. It is never
+        sent to us or to anyone else.</li>
+    <li><strong>Local usage logs:</strong> If you grant access to your <code>~/.claude</code>
+        folder, the app reads Claude Code's local log files (read-only) to calculate today's token
+        usage and estimated cost. This processing happens entirely on your Mac; nothing leaves
+        your device.</li>
+    <li><strong>Settings:</strong> Preferences (such as your organization ID) are stored locally
+        in the app's sandboxed container.</li>
+  </ul>
+
+  <h2>Network connections</h2>
+  <p>The app makes exactly one kind of network request: HTTPS requests to
+  <code>claude.ai</code> to read your own usage information. No other connections are made.</p>
+
+  <h2>Data deletion</h2>
+  <p>Quit the app and delete it. To remove the stored credential, delete the
+  "<code>nz.co.worldway.usagemonitor</code>" item in Keychain Access. No data exists anywhere else.</p>
+
+  <h2>Disclaimer</h2>
+  <p>This is an independent, open-source utility. It is not affiliated with, endorsed by, or
+  sponsored by Anthropic. "Claude" is a trademark of Anthropic, PBC.</p>
+
+  <h2>Contact</h2>
+  <p>Questions: <a href="mailto:jundongnz@gmail.com">jundongnz@gmail.com</a></p>
+</body>
+</html>

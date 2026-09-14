@@ -38,3 +38,17 @@ config.json
 
 # Claude Code local settings (machine-specific)
 .claude/
+
+# Playwright MCP 临时产物
+.playwright-mcp/
+*.pem
+*.p8
+*.key
+id_rsa
+id_rsa.*
+id_ed25519
+*.ppk
+*recovery-codes*
+credentials.json
+*.keystore
+*.jks
