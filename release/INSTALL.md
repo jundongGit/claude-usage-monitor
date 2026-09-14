@@ -53,7 +53,7 @@ Download the latest release:
 
 ```
 Cookie: sessionKey=sk-ant-sid01-ABC123...; intercom-id-ixnq...
-Org ID: 314822f8-5b98-410e-a092-1ef999fe98a8
+Org ID: 12345678-90ab-cdef-1234-567890abcdef
 ```
 
 ## ✅ Verification

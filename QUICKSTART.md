@@ -35,7 +35,7 @@ pip3 install -r requirements.txt
 
 你的组织 ID 是:
 ```
-314822f8-5b98-410e-a092-1ef999fe98a8
+12345678-90ab-cdef-1234-567890abcdef
 ```
 
 ### 4. 运行应用
@@ -50,7 +50,7 @@ python3 main.py
 2. 点击图标，选择 **⚙️ 设置 Cookie**
 3. 粘贴你的 Cookie 字符串
 4. 点击 OK
-5. 粘贴组织 ID: `314822f8-5b98-410e-a092-1ef999fe98a8`
+5. 粘贴组织 ID: `12345678-90ab-cdef-1234-567890abcdef`
 6. 点击 OK
 
 应用会立即刷新并显示你的使用情况！

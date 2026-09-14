@@ -99,8 +99,8 @@ pip3 install -r requirements.txt
 
 **Example:**
 ```
-Cookie: sessionKey=sk-ant-sid01-0XawkFbhoCmT2k8nMEKpABjDFSxls98S...
-Org ID: 314822f8-5b98-410e-a092-1ef999fe98a8
+Cookie: sessionKey=sk-ant-sid01-EXAMPLE0000REDACTED0000EXAMPLE00...
+Org ID: 12345678-90ab-cdef-1234-567890abcdef
 ```
 
 #### 4️⃣ Launch the App
@@ -239,7 +239,7 @@ Location: `~/.claude_usage_config.json`
 ```json
 {
   "cookie": "sessionKey=sk-ant-sid01-...",
-  "org_id": "314822f8-5b98-410e-a092-1ef999fe98a8"
+  "org_id": "12345678-90ab-cdef-1234-567890abcdef"
 }
 ```
 

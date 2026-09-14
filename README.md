@@ -232,7 +232,7 @@ Location: `~/.claude_usage_config.json`
 ```json
 {
   "cookie": "sessionKey=sk-ant-sid02-...; lastActiveOrg=...; cf_clearance=...",
-  "org_id": "314822f8-5b98-410e-a092-1ef999fe98a8",
+  "org_id": "12345678-90ab-cdef-1234-567890abcdef",
   "account_name": ""
 }
 ```
