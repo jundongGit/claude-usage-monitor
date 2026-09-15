@@ -4,7 +4,7 @@
 
 A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
-![Version](https://img.shields.io/badge/version-1.5.0-blue)
+![Version](https://img.shields.io/badge/version-1.7.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -18,6 +18,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 - 📈 **Today's Token Usage** - Daily input/output token tracking per model
 - 💰 **Cost Estimation** - Real-time cost calculation based on model pricing
 - ⏱️ **Countdown Display** - Shows usage and reset countdown in status bar
+- 🗓️ **Live usage dashboard** - History by day, hour or quota week, broken down by model and project, served locally and updating while open
 - 🚀 **Auto-start** - Optional login item (toggle in menu)
 - 🔔 **Smart Notifications** - Alerts at 90%/95% (15-min dedup)
 - 🔒 **Secure** - Cookie stored with 600 permissions
@@ -29,7 +30,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **Menu:**
 ```
-📊 Claude Usage Monitor v1.5.0
+📊 Claude Usage Monitor v1.7.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⏱️  5-Hour: 🟢 14% (Resets in 2hr 33min)
 🛠️  All Models: 🟢 4% (Resets Sun 10:00 PM)
@@ -40,6 +41,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
     ⬆️  Output: 228.0K
 💰 Cost: $85.00 (💎 claude-opus-5 $80.95  ✨ claude-fable-5-1 $4.06)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🗓️  Usage History
 🔄 Refresh
 ⚙️  Settings
 🚀 Auto-start on Login ✓
@@ -53,12 +55,20 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.5.0.app.zip`](../../releases/download/v1.5.0/ClaudeUsageMonitor-1.5.0.app.zip) (20 MB)
+1. **Download** [`ClaudeUsageMonitor-1.7.0.app.zip`](../../releases/download/v1.7.0/ClaudeUsageMonitor-1.7.0.app.zip) (20 MB)
 2. **Extract** the ZIP file (double-click)
 3. **Drag** `Claude Usage Monitor.app` to `/Applications` folder
 4. **Launch** from Applications
 
 The app appears in your menu bar, not in the Dock.
+
+**Two things to know about the build:**
+
+- It is **Apple Silicon only** (arm64). Intel Macs need to run from source.
+- It is **not signed with a Developer ID or notarised**, so on first launch macOS says it cannot
+  verify the developer. Open **System Settings → Privacy & Security**, scroll to the message about
+  Claude Usage Monitor and click **Open Anyway**. If you would rather not do that, run from source —
+  the app is the same code either way.
 
 **First-time Setup:**
 1. Open [claude.ai/settings/usage](https://claude.ai/settings/usage) in browser
@@ -178,6 +188,54 @@ Usage is color-coded in the menu:
 - 🟢 **0-69%**: Normal
 - 🟡 **70-89%**: High
 - 🔴 **90-100%**: Critical
+
+## 🔐 What it reads, and what leaves your machine
+
+Worth reading before you install it, and worth passing on if you share it with someone.
+
+### Where the numbers come from
+
+| Figure | Source | Needs a claude.ai session? |
+|---|---|---|
+| Tokens, cost, messages, per-project and per-model breakdowns, all history | The Claude Code transcripts in `~/.claude/projects` | **No** |
+| 5-hour / All Models / per-model limit percentages | The `/api/organizations/.../usage` endpoint on claude.ai | Yes |
+| The All Models line chart and per-week peak | Snapshots this app writes to `~/.claude_usage_history.jsonl` as it runs | Yes |
+
+So the dashboard is useful from the first launch with no configuration at all — everything except the
+quota percentages is computed locally. Two things to expect in that state: the quota tiles and the
+limit chart show their empty state, and **quota weeks are aligned to an assumed Sunday 22:00 reset**
+until the API reports your real reset time. Your reset instant is account-specific, so until then the
+weekly columns may be split at the wrong boundary. Configuring the session fixes the alignment on the
+first refresh.
+
+### What is read out of the transcripts
+
+Only the usage accounting: each assistant message's token counts, its model, its timestamp, and the
+working directory (`cwd`) the session ran in, which is what the project breakdown is keyed on. The
+message content — your prompts, the model's replies, tool output, file contents — is never extracted,
+stored or displayed anywhere; each record is decoded, those few fields are taken, and the rest is
+dropped. Directory names do appear in the project chart, so they are as revealing as your folder
+names are.
+
+### What leaves the machine
+
+Nothing that this app generates. The dashboard is served from `127.0.0.1` on a random port, every
+request must carry a token minted at startup, the Host header must be loopback, and the page fetches
+from that server only — no CDN, no web fonts, no analytics. The app makes exactly one kind of network
+request of its own: the usage API call to claude.ai, and only when you have configured a session. (It
+also opens two URLs in your browser when you click a menu row — the local dashboard, and
+claude.ai/settings/usage from the settings help.)
+
+Your session cookie and organisation id live in `~/.claude_usage_config.json` with `600` permissions.
+
+### Costs are an estimate, not a bill
+
+Token counts are real (they come from the transcripts), but the money figure is those counts
+multiplied by a **price table hardcoded in `usage_report.py`**. It follows published per-model rates
+and is updated by hand, so it drifts when prices change, and a model whose name does not match
+`opus` / `sonnet` / `haiku` / `fable` falls back to Sonnet rates. Read it as a measure of consumption
+and a way to compare periods and projects — not as what you were charged, and not as a prediction of
+what a usage-based plan would bill.
 
 ## 🐛 Troubleshooting
 
