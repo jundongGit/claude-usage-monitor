@@ -464,12 +464,15 @@ function showTip(host, tip, x, y, html) {
 }
 const hideTip = tip => { tip.style.opacity = 0; };
 
+/** Ticks from 0 to a round value at or above `max` - the top tick sets the
+ *  scale, so it must cover the data or the tallest bars draw off the top. */
 function niceTicks(max, count) {
-  const raw = max / count;
-  const mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+  const raw = (max || 1) / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
   const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || mag * 10;
+  const top = Math.ceil(max / step) * step;
   const out = [];
-  for (let v = 0; v <= max + step * 0.001; v += step) out.push(v);
+  for (let v = 0; v <= top + step * 0.001; v += step) out.push(v);
   return out;
 }
 
