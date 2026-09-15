@@ -4,7 +4,7 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
@@ -23,6 +23,7 @@ import webbrowser
 # sys.path, so a sibling module is not importable until we add it ourselves.
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import usage_report  # noqa: E402
+import report_server  # noqa: E402
 from AppKit import (NSApp, NSAlert, NSAlertFirstButtonReturn, NSFloatingWindowLevel,
                      NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString)
 from PyObjCTools import AppHelper
@@ -847,37 +848,46 @@ class ClaudeUsageApp(rumps.App):
             print(f"History trim failed: {e}")
 
     def open_usage_history(self, _):
-        """Build the HTML usage report off the main thread, then open it."""
+        """Open the live usage dashboard.
+
+        The page is served from loopback rather than written to a file, so it
+        can poll for new numbers while it stays open. Starting the server is
+        instant; the first transcript scan runs in the background behind it.
+        """
         if getattr(self, "_report_running", False):
             return
         self._report_running = True
-        _set_label(self.menu[MENU_HISTORY], "\U0001F5D3\ufe0f  Building report...")
+        _set_label(self.menu[MENU_HISTORY], "\U0001F5D3\ufe0f  Opening dashboard...")
 
         def work():
             try:
-                path = usage_report.generate_report()
+                url = report_server.start()
             except Exception as e:
-                print(f"Report generation failed: {e}")
+                print(f"Dashboard server failed to start: {e}")
                 import traceback
                 traceback.print_exc()
-                AppHelper.callAfter(self._finish_report, None, str(e))
-                return
-            AppHelper.callAfter(self._finish_report, path, None)
+                # fall back to the self-contained snapshot, which needs no server
+                try:
+                    url = usage_report.generate_report().as_uri()
+                except Exception as fallback_error:
+                    AppHelper.callAfter(self._finish_report, None, str(fallback_error))
+                    return
+            AppHelper.callAfter(self._finish_report, url, None)
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _finish_report(self, path, error):
+    def _finish_report(self, url, error):
         """Main-thread half of open_usage_history."""
         self._report_running = False
         _set_label(self.menu[MENU_HISTORY], MENU_HISTORY)
         if error:
             rumps.notification(
                 title="Usage History",
-                subtitle="Report could not be generated",
+                subtitle="Dashboard could not be opened",
                 message=error,
             )
             return
-        webbrowser.open(path.as_uri())
+        webbrowser.open(url)
 
     def refresh_usage(self, _):
         """Refresh usage data"""

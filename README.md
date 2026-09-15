@@ -121,17 +121,35 @@ The status bar shows current usage and reset countdown:
 
 ### Menu Items
 
-- **📊 Claude Usage Monitor v1.5.0** - Title (non-clickable)
+- **📊 Claude Usage Monitor v1.7.0** - Title (non-clickable)
 - **⏱️  5-Hour Limit** - Shows 5-hour rolling window usage
 - **🛠️  All Models** - Shows 7-day all models usage
 - **🔷 <Model>** - Shows the 7-day per-model limit reported by the API (currently Fable); up to three such rows
 - **📈 Today** - Today's total token count
 - **⬇️ Input / ⬆️ Output** - Input and output token breakdown
 - **💰 Cost** - Estimated cost breakdown by model
+- **🗓️  Usage History** - Opens the live usage dashboard in the default browser
 - **🔄 Refresh** - Manually refresh usage data
 - **⚙️  Settings** - Configure via cURL clipboard import
 - **🚀 Auto-start on Login** - Toggle auto-start (✓ when enabled)
 - **❌ Quit** - Exit application
+
+### Usage History dashboard
+
+**🗓️ Usage History** opens a dashboard served from loopback — `http://127.0.0.1:<random port>/?k=<token>`.
+The page polls every 15 seconds, so it keeps updating while it stays open.
+
+- **Where the numbers come from**: token counts are read from the Claude Code transcripts in
+  `~/.claude/projects` and priced from the published per-model rates, so they are an estimate of
+  consumption, not a bill. The All Models percentage comes from the snapshots the app records in
+  `~/.claude_usage_history.jsonl`, because the API only ever reports the current value.
+- **Range control** (Today / 7 / 30 / 90 days / All time) scopes the tiles, the trend chart, the
+  model and project breakdowns and the detail table. Quota-week panels always show the full history.
+- **Access**: the listener is bound to 127.0.0.1, every request must carry the token minted at
+  startup, and the Host header must be loopback. The server only reads local files.
+- **Offline snapshot**: `python3 usage_report.py` writes a self-contained
+  `~/.claude_usage_report.html` with the data inlined — no server, no network. The app falls back to
+  it automatically if the server cannot start.
 
 ### Auto-start on Login
 

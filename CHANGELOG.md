@@ -5,6 +5,19 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-09-15
+
+### ✨ Added
+- **The usage report is now a live dashboard.** Opening it starts a loopback HTTP server (127.0.0.1, random port, random token in the URL) and the page polls `/api/usage` every 15 seconds, so the numbers move while it stays open — no rebuild, no lost scroll position, no lost filter selection. The old `file://` snapshot could not do this: a `file://` page may not fetch a sibling JSON file. A self-contained snapshot is still available (`python3 usage_report.py`, and as the automatic fallback if the server cannot start).
+- **Time range control** — Today / 7 days / 30 days / 90 days / All time — in one row above the page. It scopes the stat tiles, the trend chart, the model and project breakdowns and the detail table, so every number on screen agrees. The quota-week panels stay on the full history, since a quota week is not a date range.
+- **The daily figures are a chart, not just a table.** The main panel plots the range stacked by model and follows the range's own granularity: hourly for Today (72 hours of hourly detail are kept), daily for 7–90 days, by quota week beyond ~140 days. It carries an average reference line, direct labels on the most recent and peak slot, and a per-slot tooltip with the model split and message count.
+- **Detail table with three views** — Daily, Quota weeks, Projects — replacing the two fixed tables. The Projects view lists every working directory in range with share, tokens, messages and active days.
+
+### 🔧 Changed
+- **Stat tiles are range-aware**: All Models this quota week (with a meter and reset countdown), cost or tokens in range with a comparison against the preceding period of equal length, messages in range, and the average per active day/hour with its peak.
+- **The status pill reports what actually happened** — `Live · updated 12:17:08` only after a successful fetch, `Paused` in a background tab, `Retrying` / `Disconnected` when polls fail, `Snapshot` for the static export. It never claims freshness it cannot back up.
+- **Incremental scanning.** The transcripts under `~/.claude/projects` total ~2 GB; a cold pass now reads bytes instead of decoded text (~3.7 s, ~265 MB peak, down from ~4.8 s and ~1.85 GB) and every later pass reads only the bytes appended since, which is what makes a 15-second poll affordable (3–5 ms warm). The payload version only moves when the numbers move, so an unchanged poll answers 304.
+
 ## [1.6.0] - 2026-09-14
 
 ### ✨ Added

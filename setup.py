@@ -41,6 +41,8 @@ OPTIONS = {
     # Include all dependencies
     'includes': [
         'usage_report',
+        'report_server',
+        'report_template',
         'rumps',
         'requests',
         'json',
