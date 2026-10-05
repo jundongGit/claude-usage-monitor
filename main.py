@@ -4,7 +4,7 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.7.0"
+__version__ = "1.7.1"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
@@ -341,9 +341,11 @@ class ClaudeUsageApp(rumps.App):
                     "    ⬆️  Output: ...", "💰 Cost: Loading..."):
             _set_label(self.menu[key], self.menu[key].title)
 
-        # First run guide
+        # First run guide — deferred: NSApp is None until app.run() starts the event loop,
+        # and the config dialog it opens needs the Edit menu (1s timer below) for Cmd+V
         if self.first_run:
-            self.show_welcome_guide()
+            self._welcome_timer = rumps.Timer(self._deferred_welcome_guide, 1.5)
+            self._welcome_timer.start()
 
         # Fetch data on startup
         self.refresh_usage(None)
@@ -507,6 +509,10 @@ class ClaudeUsageApp(rumps.App):
                 return f"{minutes}m"
         except Exception as e:
             return ""
+
+    def _deferred_welcome_guide(self, _):
+        self._welcome_timer.stop()
+        self.show_welcome_guide()
 
     def show_welcome_guide(self):
         """Show welcome guide for first run"""

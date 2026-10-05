@@ -5,6 +5,14 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-10-05
+
+### 🐛 Fixed
+- **First launch on a new Mac failed with "Launch error — See the py2app website".** With no `~/.claude_usage_config.json` the app opened the welcome dialog from `__init__`, before `app.run()` had created `NSApplication`, so `NSApp` was `None` and `activateIgnoringOtherApps_` raised `AttributeError`. Machines that already had a config never took this path. The welcome dialog now opens from a one-shot timer once the event loop is running.
+
+### 🔧 Changed
+- **The release is signed with a Developer ID and notarized by Apple.** It used to be ad-hoc signed, so every new Mac blocked the first launch until the user went to Privacy & Security → Open Anyway. `sign_notarize.sh` (run after `build.sh`) signs every nested binary with the hardened runtime, notarizes and staples both the `.app` and the `.dmg`.
+
 ## [1.7.0] - 2026-09-15
 
 ### ✨ Added

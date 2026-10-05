@@ -4,7 +4,7 @@
 
 A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
-![Version](https://img.shields.io/badge/version-1.7.0-blue)
+![Version](https://img.shields.io/badge/version-1.7.1-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -30,7 +30,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **Menu:**
 ```
-📊 Claude Usage Monitor v1.7.0
+📊 Claude Usage Monitor v1.7.1
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⏱️  5-Hour: 🟢 14% (Resets in 2hr 33min)
 🛠️  All Models: 🟢 4% (Resets Sun 10:00 PM)
@@ -55,20 +55,15 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.7.0.app.zip`](../../releases/download/v1.7.0/ClaudeUsageMonitor-1.7.0.app.zip) (20 MB)
-2. **Extract** the ZIP file (double-click)
-3. **Drag** `Claude Usage Monitor.app` to `/Applications` folder
-4. **Launch** from Applications
+1. **Download** [`ClaudeUsageMonitor-1.7.1.dmg`](../../releases/download/v1.7.1/ClaudeUsageMonitor-1.7.1.dmg) (20 MB)
+   — or the [`.app.zip`](../../releases/download/v1.7.1/ClaudeUsageMonitor-1.7.1.app.zip)
+2. **Open** the DMG and drag `Claude Usage Monitor.app` to `Applications`
+3. **Launch** from Applications
 
 The app appears in your menu bar, not in the Dock.
 
-**Two things to know about the build:**
-
-- It is **Apple Silicon only** (arm64). Intel Macs need to run from source.
-- It is **not signed with a Developer ID or notarised**, so on first launch macOS says it cannot
-  verify the developer. Open **System Settings → Privacy & Security**, scroll to the message about
-  Claude Usage Monitor and click **Open Anyway**. If you would rather not do that, run from source —
-  the app is the same code either way.
+The build is signed with a Developer ID (FREEAI LIMITED) and notarized by Apple, so it opens
+with a normal double-click. It is **Apple Silicon only** (arm64); Intel Macs need to run from source.
 
 **First-time Setup:**
 1. Open [claude.ai/settings/usage](https://claude.ai/settings/usage) in browser
@@ -131,7 +126,7 @@ The status bar shows current usage and reset countdown:
 
 ### Menu Items
 
-- **📊 Claude Usage Monitor v1.7.0** - Title (non-clickable)
+- **📊 Claude Usage Monitor v1.7.1** - Title (non-clickable)
 - **⏱️  5-Hour Limit** - Shows 5-hour rolling window usage
 - **🛠️  All Models** - Shows 7-day all models usage
 - **🔷 <Model>** - Shows the 7-day per-model limit reported by the API (currently Fable); up to three such rows
