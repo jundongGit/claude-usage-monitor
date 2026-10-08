@@ -4,7 +4,7 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.7.2"
+__version__ = "1.7.3"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
@@ -24,6 +24,7 @@ import webbrowser
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import usage_report  # noqa: E402
 import report_server  # noqa: E402
+import updater  # noqa: E402
 from AppKit import (NSApp, NSAlert, NSAlertFirstButtonReturn, NSFloatingWindowLevel,
                      NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString)
 from PyObjCTools import AppHelper
@@ -172,6 +173,7 @@ def _normalize_limits(data):
 MENU_SESSION = "\u23f1\ufe0f  5-Hour Limit: Loading..."
 MENU_WEEKLY_ALL = "\U0001F6E0\ufe0f  All Models: Loading..."
 MENU_HISTORY = "\U0001F5D3\ufe0f  Usage History"
+MENU_UPDATE = "\u2b07\ufe0f  Check for Updates\u2026"
 MENU_SCOPED = (
     "\U0001F537 Model Limit 1: Loading...",
     "\U0001F537 Model Limit 2: Loading...",
@@ -299,6 +301,13 @@ class ClaudeUsageApp(rumps.App):
         # Mark if this is first run
         self.first_run = not self.cookie and not self.org_id
 
+        # Update state: the newer release once one is found, and a guard against
+        # starting a second check or install while one is running
+        self._update = None
+        self._update_busy = False
+        self._update_notified = None
+        self._update_item = rumps.MenuItem(MENU_UPDATE, callback=self.on_update_clicked)
+
         # Menu items
         self.menu = [
             rumps.MenuItem(f"📊 Claude Usage Monitor v{__version__}", callback=None),
@@ -318,6 +327,7 @@ class ClaudeUsageApp(rumps.App):
             rumps.MenuItem("🔄 Refresh", callback=self.refresh_usage),
             rumps.MenuItem("⚙️  Settings", callback=self.set_config),
             rumps.MenuItem("🚀 Auto-start on Login", callback=self.toggle_autostart),
+            self._update_item,
             rumps.separator,
             rumps.MenuItem("❌ Quit", callback=rumps.quit_application)
         ]
@@ -353,6 +363,11 @@ class ClaudeUsageApp(rumps.App):
         # Add Edit menu so Cmd+V paste works in dialogs (delayed, NSApp not ready in __init__)
         self._edit_menu_timer = rumps.Timer(self._deferred_setup_edit_menu, 1)
         self._edit_menu_timer.start()
+
+        # Update check: first one shortly after launch, then daily. Started from
+        # callLater because rumps.Timer.start() fires the callback immediately.
+        self._update_timer = rumps.Timer(lambda _: self.check_for_update(manual=False), updater.CHECK_INTERVAL)
+        AppHelper.callLater(20, self._update_timer.start)
 
         # Set timer to refresh every 1 minute
         self.trim_snapshot_history()
@@ -852,6 +867,107 @@ class ClaudeUsageApp(rumps.App):
             path.write_text("".join(lines[-20000:]), encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
             print(f"History trim failed: {e}")
+
+    # ---------- updates ----------
+
+    def _feed_url(self):
+        """GitHub releases API, overridable for testing:
+        defaults write com.freeai.claudeusagemonitor UpdateFeedURL <url>"""
+        try:
+            from Foundation import NSUserDefaults
+            custom = NSUserDefaults.standardUserDefaults().stringForKey_("UpdateFeedURL")
+        except Exception:
+            custom = None
+        return custom or updater.FEED_URL
+
+    def on_update_clicked(self, _):
+        if self._update_busy:
+            return
+        if self._update:
+            self._offer_update(self._update)
+        else:
+            self.check_for_update(manual=True)
+
+    def check_for_update(self, manual):
+        if self._update_busy:
+            return
+        self._update_busy = True
+        if manual:
+            self._update_item.title = "\u2b07\ufe0f  Checking for Updates\u2026"
+        feed = self._feed_url()
+
+        def work():
+            try:
+                release, error = updater.latest_release(feed), None
+            except Exception as e:
+                release, error = None, e
+            AppHelper.callAfter(self._on_update_checked, release, error, manual)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_update_checked(self, release, error, manual):
+        self._update_busy = False
+        if release and updater.is_newer(release["version"], __version__):
+            self._update = release
+            self._update_item.title = f"\u2b06\ufe0f  Update to v{release['version']}"
+            if manual:
+                self._offer_update(release)
+            elif self._update_notified != release["version"]:
+                self._update_notified = release["version"]
+                rumps.notification(
+                    title="Update Available",
+                    subtitle="",
+                    message=f"Claude Usage Monitor v{release['version']} is available. "
+                            "Install it from the menu bar.",
+                )
+            return
+        self._update_item.title = MENU_UPDATE
+        if not manual:
+            if error:
+                print(f"Update check failed: {error}")
+            return
+        if error:
+            self._top_alert("Update Check Failed", str(error))
+        else:
+            self._top_alert("No Update Available",
+                            f"Claude Usage Monitor v{__version__} is the latest version.")
+
+    def _offer_update(self, release):
+        bundle = updater.running_bundle()
+        if not updater.can_install_in_place(bundle):
+            if self._top_alert("Update Available",
+                               f"Version {release['version']} is available (installed: {__version__}). "
+                               "The app location is not writable, so the update must be "
+                               "installed manually.",
+                               ok="Open Download Page", cancel="Later"):
+                webbrowser.open(release["page"])
+            return
+        if not self._top_alert("Update Available",
+                               f"Version {release['version']} is available (installed: {__version__}). "
+                               "The app restarts after the update.",
+                               ok="Install and Restart", cancel="Later"):
+            return
+
+        self._update_busy = True
+        self._update_item.title = f"\u2b07\ufe0f  Installing v{release['version']}\u2026"
+
+        def work():
+            try:
+                updater.download_and_install(release, bundle)
+                error = None
+            except Exception as e:
+                error = e
+            AppHelper.callAfter(self._on_update_installed, release, bundle, error)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_update_installed(self, release, bundle, error):
+        self._update_busy = False
+        if error:
+            self._update_item.title = f"\u2b06\ufe0f  Update to v{release['version']}"
+            self._top_alert("Update Failed",
+                            f"{error}\n\nThe installed version ({__version__}) is unchanged.")
+            return
+        updater.relaunch(bundle)
+        rumps.quit_application()
 
     def open_usage_history(self, _):
         """Open the live usage dashboard.

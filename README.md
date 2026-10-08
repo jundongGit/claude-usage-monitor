@@ -20,6 +20,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 - ⏱️ **Countdown Display** - Shows usage and reset countdown in status bar
 - 🗓️ **Live usage dashboard** - History by day, hour or quota week, broken down by model and project, served locally and updating while open
 - 🚀 **Auto-start** - Optional login item (toggle in menu)
+- ⬆️ **In-app updates** - Checks GitHub Releases daily; one click downloads, verifies and installs the new version, then restarts
 - 🔔 **Smart Notifications** - Alerts at 90%/95% (15-min dedup)
 - 🔒 **Secure** - Cookie stored with 600 permissions
 - 🎨 **Visual Indicators** - Color-coded progress (🟢 🟡 🔴)
@@ -137,6 +138,7 @@ The status bar shows current usage and reset countdown:
 - **🔄 Refresh** - Manually refresh usage data
 - **⚙️  Settings** - Configure via cURL clipboard import
 - **🚀 Auto-start on Login** - Toggle auto-start (✓ when enabled)
+- **⬇️  Check for Updates…** - Checks for a newer release; reads **⬆️  Update to vX.Y.Z** once one is found
 - **❌ Quit** - Exit application
 
 ### Usage History dashboard
@@ -148,13 +150,36 @@ The page polls every 15 seconds, so it keeps updating while it stays open.
   `~/.claude/projects` and priced from the published per-model rates, so they are an estimate of
   consumption, not a bill. The All Models percentage comes from the snapshots the app records in
   `~/.claude_usage_history.jsonl`, because the API only ever reports the current value.
-- **Range control** (Today / 7 / 30 / 90 days / All time) scopes the tiles, the trend chart, the
-  model and project breakdowns and the detail table. Quota-week panels always show the full history.
+- **Range control** (Today / 7 / 30 / 90 days / By week / All time) scopes the tiles, the trend chart, the
+  model and project breakdowns and the detail table. **By week** steps through quota weeks with the
+  ‹ › arrows. Quota-week panels always show the full history.
 - **Access**: the listener is bound to 127.0.0.1, every request must carry the token minted at
   startup, and the Host header must be loopback. The server only reads local files.
 - **Offline snapshot**: `python3 usage_report.py` writes a self-contained
   `~/.claude_usage_report.html` with the data inlined — no server, no network. The app falls back to
   it automatically if the server cannot start.
+
+### Updates
+
+The app checks `api.github.com/repos/jundongGit/claude-usage-monitor/releases/latest` about 20 seconds
+after launch and then once a day. When a newer version exists, the menu row changes to
+**⬆️ Update to vX.Y.Z** and one notification is shown. Choosing it downloads the release's
+`.app.zip`, and installs it only if all of these hold:
+
+- the code signature is valid (`codesign --verify --deep --strict`)
+- it is signed by the FREEAI Developer ID team (`XF9W8A344D`)
+- Gatekeeper accepts it (notarized)
+- its bundle id and version match the app and the release tag
+
+The bundle is swapped in place and the app restarts. If any check fails the installed version is left
+untouched. When the app's folder is not writable, the update opens the release page instead.
+
+**Publishing a release** (so installed copies pick it up): bump `__version__` in `main.py`, run
+`./build.sh` then `./sign_notarize.sh`, and attach `dist/ClaudeUsageMonitor-<version>.app.zip` (and
+the `.dmg`) to a GitHub release tagged `v<version>`. The updater needs the `.app.zip` asset.
+
+For testing against a local feed: `defaults write com.freeai.claudeusagemonitor UpdateFeedURL <url>`
+(remove with `defaults delete com.freeai.claudeusagemonitor UpdateFeedURL`).
 
 ### Auto-start on Login
 
@@ -217,7 +242,8 @@ names are.
 Nothing that this app generates. The dashboard is served from `127.0.0.1` on a random port, every
 request must carry a token minted at startup, the Host header must be loopback, and the page fetches
 from that server only — no CDN, no web fonts, no analytics. The app makes exactly one kind of network
-request of its own: the usage API call to claude.ai, and only when you have configured a session. (It
+request of its own: the usage API call to claude.ai, and only when you have configured a session —
+plus the daily update check against the GitHub releases API, which sends nothing beyond a plain GET. (It
 also opens two URLs in your browser when you click a menu row — the local dashboard, and
 claude.ai/settings/usage from the settings help.)
 

@@ -5,6 +5,11 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.3] - 2026-10-08
+
+### ✨ Added
+- **In-app updates.** About 20 seconds after launch and then daily, the app reads the latest GitHub release. When it is newer, the menu row **⬇️ Check for Updates…** becomes **⬆️ Update to vX.Y.Z** and one notification is shown. Choosing it downloads the release's `.app.zip`, verifies the code signature, the FREEAI team id, Gatekeeper (notarization), the bundle id and that the bundled version matches the tag, swaps the bundle in place and restarts. Any failed check leaves the installed version untouched; a read-only install location opens the release page instead. The menu row also checks on demand.
+
 ## [1.7.2] - 2026-10-08
 
 ### ✨ Added

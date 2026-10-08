@@ -43,6 +43,7 @@ OPTIONS = {
         'usage_report',
         'report_server',
         'report_template',
+        'updater',
         'rumps',
         'requests',
         'json',
