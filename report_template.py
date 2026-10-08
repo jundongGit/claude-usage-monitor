@@ -82,6 +82,15 @@ TEMPLATE = r"""<!doctype html>
   .seg button:hover { background: var(--surface-2); }
   .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
   .seg button[aria-pressed="true"]:hover { background: var(--seq-550); }
+  .weeknav { display: inline-flex; align-items: center; border: 1px solid var(--border-strong); border-radius: 7px; overflow: hidden; background: var(--surface-1); }
+  .weeknav[hidden] { display: none; }
+  .weeknav button { display: inline-flex; align-items: center; justify-content: center; width: 30px; align-self: stretch;
+    border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; padding: 0; }
+  .weeknav button:hover:not(:disabled) { background: var(--surface-2); }
+  .weeknav button:disabled { color: var(--text-muted); opacity: .4; cursor: default; }
+  .weeknav button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .weeknav span { padding: 0 10px; font-size: 12.5px; font-variant-numeric: tabular-nums; min-width: 112px; text-align: center;
+    border-left: 1px solid var(--border-strong); border-right: 1px solid var(--border-strong); line-height: 28px; }
 
   .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
   .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 15px 16px; }
@@ -149,6 +158,8 @@ TEMPLATE = r"""<!doctype html>
   }
   @media (max-width: 540px) {
     .cards { grid-template-columns: 1fr; }
+    #rangeSeg { max-width: 100%; overflow-x: auto; }
+    #rangeSeg button { flex-shrink: 0; }
   }
 </style>
 </head>
@@ -165,6 +176,11 @@ TEMPLATE = r"""<!doctype html>
   <div class="toolbar">
     <span class="lbl">Range</span>
     <div class="seg" id="rangeSeg"></div>
+    <div class="weeknav" id="weekNav" hidden>
+      <button id="weekPrev" aria-label="Previous week"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <span id="weekLabel"></span>
+      <button id="weekNext" aria-label="Next week"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
     <span class="lbl">Metric</span>
     <div class="seg" id="metricSeg">
       <button data-metric="cost" aria-pressed="true">Cost</button>
@@ -243,15 +259,17 @@ const RANGES = [
   { id: "7d", label: "7 days", days: 7 },
   { id: "30d", label: "30 days", days: 30 },
   { id: "90d", label: "90 days", days: 90 },
+  { id: "week", label: "By week" },
   { id: "all", label: "All time" },
 ];
 
-const STATE = { range: "7d", metric: "cost", table: "day" };
+const STATE = { range: "7d", metric: "cost", table: "day", week: null };
 try {
   const saved = JSON.parse(localStorage.getItem("claudeUsageView") || "{}");
   if (RANGES.some(r => r.id === saved.range)) STATE.range = saved.range;
   if (saved.metric === "cost" || saved.metric === "tokens") STATE.metric = saved.metric;
   if (["day", "week", "project"].includes(saved.table)) STATE.table = saved.table;
+  if (typeof saved.week === "number") STATE.week = saved.week;
 } catch (e) { /* private mode or blocked storage - defaults are fine */ }
 const persist = () => {
   try { localStorage.setItem("claudeUsageView", JSON.stringify(STATE)); } catch (e) { /* ignore */ }
@@ -359,10 +377,37 @@ const estPct = cost => {
   return v >= 100 ? ">100%" : v < 1 ? "<1%" : "~" + v.toFixed(0) + "%";
 };
 
+/* ---------- quota weeks for the week stepper ---------- */
+/** Every quota week from the first record to the week in progress, oldest first. */
+function weekList() {
+  const list = IDX.weekTimes.slice();
+  const cur = DATA.nextReset ? new Date(DATA.nextReset).getTime() - WEEK_MS : null;
+  if (cur !== null && (!list.length || cur > list[list.length - 1])) list.push(cur);
+  return list;
+}
+
+/** The selected quota week; falls back to the week in progress. */
+function selectedWeek() {
+  const list = weekList();
+  if (!list.length) return null;
+  return list.includes(STATE.week) ? STATE.week : list[list.length - 1];
+}
+
 /* ---------- the selected window ---------- */
 function currentWindow() {
   const now = new Date();
   const def = RANGES.find(r => r.id === STATE.range) || RANGES[1];
+  if (def.id === "week") {
+    const iso = selectedWeek();
+    if (iso !== null) {
+      const start = new Date(iso);
+      const end = new Date(Math.min(iso + WEEK_MS - 1000, now.getTime()));
+      const list = weekList();
+      const label = iso === list[list.length - 1] ? "this quota week" : mdy(start) + " week";
+      return { start, end, gran: "day", label, days: Math.round((startOfDay(end) - startOfDay(start)) / DAY_MS) + 1,
+               week: iso, compare: "vs the previous quota week" };
+    }
+  }
   if (def.id === "today") {
     return { start: startOfDay(now), end: now, gran: "hour", label: "Today", days: 1,
              compare: "vs the same hours yesterday" };
@@ -380,7 +425,8 @@ function currentWindow() {
   };
 }
 
-const inWindow = (r, win) => r.d >= dayKey(win.start) && r.d <= dayKey(win.end);
+// A quota week starts mid-day, so it is matched on the record's week rather than on calendar days
+const inWindow = (r, win) => win.week != null ? r.wt === win.week : r.d >= dayKey(win.start) && r.d <= dayKey(win.end);
 
 function recordsIn(win) { return IDX.R.filter(r => inWindow(r, win)); }
 
@@ -425,9 +471,8 @@ function seriesFor(win) {
     return out;
   }
   const out = [];
-  for (let t = win.start.getTime(); t <= win.end.getTime(); t += DAY_MS) {
-    const d = new Date(t);
-    out.push(emptyBucket(startOfDay(d).getTime(), mdy(d)));
+  for (let d = startOfDay(win.start); d <= win.end; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+    out.push(emptyBucket(d.getTime(), mdy(d)));
   }
   const byKey = {};
   out.forEach(b => { byKey[dayKey(new Date(b.t))] = b; });
@@ -861,7 +906,8 @@ function renderCards() {
   const curCalls = cur.reduce((s, r) => s + r.n, 0);
 
   const spanMs = win.end - win.start;
-  const prevWin = { start: new Date(win.start.getTime() - spanMs), end: new Date(win.start.getTime() - 1) };
+  const prevWin = win.week != null ? { week: win.week - WEEK_MS }
+    : { start: new Date(win.start.getTime() - spanMs), end: new Date(win.start.getTime() - 1) };
   const prevVal = IDX.R.filter(r => inWindow(r, prevWin)).reduce((s, r) => s + valueOf(r), 0);
   const delta = prevVal > 0 ? (curVal - prevVal) / prevVal * 100 : null;
 
@@ -870,19 +916,24 @@ function renderCards() {
   const top = buckets.slice().sort((a, b) => b[metric] - a[metric])[0];
   const unit = win.gran === "hour" ? "hour" : win.gran === "week" ? "week" : "day";
 
+  const list = win.week != null ? weekList() : null;
+  const pastWeek = list && win.week !== list[list.length - 1];
+  const peak = pastWeek ? IDX.peakByWeek[win.week] : null;
   const snap = IDX.latestSnap;
-  const pct = snap ? snap.all : null;
+  const pct = pastWeek ? (peak ? peak.pct : null) : snap ? snap.all : null;
   const level = pct === null ? "" : pct >= 95 ? "critical" : pct >= 80 ? "warning" : "";
   const reset = DATA.nextReset ? new Date(DATA.nextReset) : null;
 
   const tiles = [];
   tiles.push(
-    '<div class="card"><div class="label">All Models this quota week</div>' +
+    '<div class="card"><div class="label">' + (pastWeek ? "All Models · week peak" : "All Models this quota week") + "</div>" +
     '<div class="value">' + (pct === null ? "—" : pct + "%") + "</div>" +
     '<div class="meter"' + (level ? ' data-level="' + level + '"' : "") + '><i style="width:' +
       Math.max(0, Math.min(100, pct || 0)) + '%"></i></div>' +
-    '<div class="sub">' + (reset ? "resets in " + durationText(reset - new Date()) : "awaiting first snapshot") +
-    (snap ? " · read " + esc(clock(new Date(snap.ts))) : "") + "</div></div>"
+    '<div class="sub">' + (pastWeek
+      ? (peak ? "highest reading recorded that week" : "no reading recorded that week")
+      : (reset ? "resets in " + durationText(reset - new Date()) : "awaiting first snapshot") +
+        (snap ? " · read " + esc(clock(new Date(snap.ts))) : "")) + "</div></div>"
   );
   tiles.push(
     '<div class="card"><div class="label">' + (metric === "cost" ? "Cost" : "Tokens") + " · " + esc(win.label) + "</div>" +
@@ -991,7 +1042,10 @@ function renderTable() {
 /* ---------- header, scope, footer ---------- */
 function renderMeta() {
   const win = currentWindow();
-  document.getElementById("scope").textContent = win.gran === "hour"
+  renderWeekNav(win);
+  document.getElementById("scope").textContent = win.week != null
+    ? mdy(win.start) + " " + hm(win.start) + " – " + mdy(win.end) + " " + hm(win.end) + " · quota week · daily"
+    : win.gran === "hour"
     ? mdy(win.start) + " · " + hm(win.start) + "–" + hm(win.end) + " · hourly"
     : mdy(win.start) + " – " + mdy(win.end) + " · " + win.days + " days · " + (win.gran === "week" ? "by quota week" : "daily");
 
@@ -1060,6 +1114,29 @@ function renderAll() {
   renderStatus();
 }
 
+function renderWeekNav(win) {
+  const nav = document.getElementById("weekNav");
+  nav.hidden = win.week == null;
+  if (win.week == null) return;
+  const list = weekList();
+  const i = list.indexOf(win.week);
+  document.getElementById("weekLabel").textContent =
+    mdy(new Date(win.week)) + " – " + mdy(new Date(win.week + WEEK_MS - 1000));
+  document.getElementById("weekPrev").disabled = i <= 0;
+  document.getElementById("weekNext").disabled = i >= list.length - 1;
+}
+
+function stepWeek(dir) {
+  const list = weekList();
+  const i = list.indexOf(selectedWeek());
+  const next = list[i + dir];
+  if (next === undefined) return;
+  // the week in progress is stored as null so a reload after the reset lands on the new week
+  STATE.week = next === list[list.length - 1] ? null : next;
+  persist();
+  renderAll();
+}
+
 function setData(next) {
   DATA = next;
   buildIndex();
@@ -1083,6 +1160,8 @@ function wireSeg(id, key, after) {
   });
 }
 wireSeg("rangeSeg", "range", renderAll);
+document.getElementById("weekPrev").addEventListener("click", () => stepWeek(-1));
+document.getElementById("weekNext").addEventListener("click", () => stepWeek(1));
 wireSeg("metricSeg", "metric", renderAll);
 wireSeg("tableSeg", "table", renderTable);
 

@@ -4,7 +4,7 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.7.1"
+__version__ = "1.7.2"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps

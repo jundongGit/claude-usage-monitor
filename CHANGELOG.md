@@ -5,6 +5,11 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2026-10-08
+
+### ✨ Added
+- **Usage dashboard: browse by quota week.** A new "By week" range with previous / next arrows steps through every quota week on record. The stat tiles, the daily chart, the model and project breakdowns and the detail table all follow the selected week; records are matched on their quota week rather than on calendar days, so the partial first and last day of each week are counted exactly. For a past week the quota tile shows the highest All Models reading recorded that week, and the cost tile compares against the week before it.
+
 ## [1.7.1] - 2026-10-05
 
 ### 🐛 Fixed
