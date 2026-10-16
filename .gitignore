@@ -52,3 +52,7 @@ id_ed25519
 credentials.json
 *.keystore
 *.jks
+
+# Cloud mirror: secrets and stored payload
+cloud/.env
+cloud/data/

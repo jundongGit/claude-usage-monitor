@@ -44,6 +44,7 @@ OPTIONS = {
         'report_server',
         'report_template',
         'updater',
+        'cloud_sync',
         'rumps',
         'requests',
         'json',

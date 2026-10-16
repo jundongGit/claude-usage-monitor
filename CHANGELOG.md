@@ -5,6 +5,15 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-10-17
+
+### ✨ Added
+- **Cloud sync: the usage history on a phone.** A new menu row, **☁️ Cloud Sync**, mirrors the dashboard to a server you host (`cloud/`: FastAPI in one Docker container). Every 5 minutes the app uploads the gzipped dashboard payload when the numbers changed and otherwise sends a heartbeat, so the mirror can tell "no new usage" from "the Mac is off". The mirror serves the unchanged dashboard behind a username + password sign-in (bcrypt, signed 30-day cookie, 5 attempts per 15 minutes per IP). Off by default; what is uploaded is listed in the README.
+
+### 🔧 Changed
+- **The dashboard fits a phone.** Below 540 px the range control is a 3 × 2 grid instead of a row whose last option was cut off, and the model donut shrinks so its labels no longer overlap the ring.
+- The dashboard server and cloud sync share one transcript scanner, so the transcripts are held in memory once.
+
 ## [1.7.3] - 2026-10-08
 
 ### ✨ Added

@@ -119,7 +119,7 @@ def start(port=0, warm=True):
         if _state["url"]:
             return _state["url"]
 
-        scanner = usage_report.Scanner()
+        scanner = usage_report.shared_scanner()
         server = _Server(("127.0.0.1", port), _Handler)
         server.token = secrets.token_urlsafe(18)
         server.scanner = scanner

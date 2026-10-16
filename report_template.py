@@ -5,7 +5,8 @@ code stays readable. Two placeholders are substituted before the page is sent:
 
   /*__PAYLOAD__*/  the usage payload, or ``null`` in live mode (the page then
                    fetches it, so the first paint is not blocked by a scan)
-  /*__CONFIG__*/   {live, endpoint, pollSeconds}
+  /*__CONFIG__*/   {live, endpoint, pollSeconds, cloud?}  - cloud: served by the
+                   cloud mirror, so freshness is the Mac's last sync, not the poll
 
 The page is deliberately light-only: it is read on a desktop next to the menu
 bar app, and the palette below is the validated light-surface instance.
@@ -158,8 +159,10 @@ TEMPLATE = r"""<!doctype html>
   }
   @media (max-width: 540px) {
     .cards { grid-template-columns: 1fr; }
-    #rangeSeg { max-width: 100%; overflow-x: auto; }
-    #rangeSeg button { flex-shrink: 0; }
+    /* six ranges do not fit one row; a 3x2 grid keeps every option visible */
+    #rangeSeg { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; gap: 1px; background: var(--border-strong); }
+    #rangeSeg button:not([aria-pressed="true"]) { background: var(--surface-1); }
+    #rangeSeg button + button { border-left: 0; }
   }
 </style>
 </head>
@@ -659,7 +662,9 @@ function renderModelChart() {
 
   const H = 236;
   const { svg, width, tip } = svgRoot(host, H);
-  const cx = 104, cy = H / 2, rO = 78, rI = 50;
+  // on a phone the full-size ring leaves no room for the labels beside it
+  const compact = width < 400;
+  const rO = compact ? 62 : 78, rI = compact ? 40 : 50, cx = rO + 26, cy = H / 2;
   let a0 = -Math.PI / 2;
 
   totals.forEach(d => {
@@ -687,7 +692,7 @@ function renderModelChart() {
     .textContent = "total";
 
   // direct labels carry identity where the light hues fall under 3:1 on the surface
-  const labelX = Math.min(212, width - 150);
+  const labelX = compact ? cx + rO + 16 : Math.min(212, width - 150);
   totals.forEach((d, i) => {
     const ty = cy - (totals.length - 1) * 12 + i * 24;
     el("rect", { x: labelX, y: ty - 9, width: 10, height: 10, rx: 3, fill: C[d.m] || C.other }, svg);
@@ -1084,6 +1089,19 @@ function renderStatus() {
     text.textContent = failures ? "Cannot reach the app" : "Connecting…";
     return;
   }
+  if (CFG.cloud && DATA && DATA.syncedAt) {
+    // the server answers every poll; what can be stale is the Mac behind it
+    const synced = new Date(DATA.syncedAt);
+    const sameDay = synced.toDateString() === new Date().toDateString();
+    const when = sameDay ? clock(synced).slice(0, 5)
+      : synced.toLocaleString("en-NZ", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+    const quiet = Date.now() - synced > 15 * 60000;
+    pill.dataset.state = failures >= 3 ? "offline" : quiet ? "stale" : "live";
+    text.textContent = failures >= 3 ? "Disconnected · synced " + when
+      : quiet ? "Mac offline · synced " + when
+      : "Synced " + when;
+    return;
+  }
   if (document.hidden) {
     // polling is paused in a background tab - say so rather than claim a retry
     pill.dataset.state = "static";
@@ -1187,6 +1205,10 @@ async function poll(force) {
       lastOk = Date.now();
       failures = 0;
       renderStatus();
+      return;
+    }
+    if (res.status === 401 && CFG.cloud) {
+      location.href = "/login";
       return;
     }
     if (!res.ok) throw new Error("HTTP " + res.status);

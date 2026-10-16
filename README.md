@@ -4,7 +4,7 @@
 
 A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
-![Version](https://img.shields.io/badge/version-1.7.3-blue)
+![Version](https://img.shields.io/badge/version-1.8.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -19,6 +19,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 - 💰 **Cost Estimation** - Real-time cost calculation based on model pricing
 - ⏱️ **Countdown Display** - Shows usage and reset countdown in status bar
 - 🗓️ **Live usage dashboard** - History by day, hour or quota week, broken down by model and project, served locally and updating while open
+- ☁️ **Cloud sync (optional)** - Mirrors the dashboard to a server you host, so the history can be read on a phone
 - 🚀 **Auto-start** - Optional login item (toggle in menu)
 - ⬆️ **In-app updates** - Checks GitHub Releases daily; one click downloads, verifies and installs the new version, then restarts
 - 🔔 **Smart Notifications** - Alerts at 90%/95% (15-min dedup)
@@ -31,7 +32,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **Menu:**
 ```
-📊 Claude Usage Monitor v1.7.3
+📊 Claude Usage Monitor v1.8.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⏱️  5-Hour: 🟢 14% (Resets in 2hr 33min)
 🛠️  All Models: 🟢 4% (Resets Sun 10:00 PM)
@@ -43,6 +44,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 💰 Cost: $85.00 (💎 claude-opus-5 $80.95  ✨ claude-fable-5-1 $4.06)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🗓️  Usage History
+☁️  Cloud Sync: 10:42
 🔄 Refresh
 ⚙️  Settings
 🚀 Auto-start on Login ✓
@@ -56,8 +58,8 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.7.3.dmg`](../../releases/download/v1.7.3/ClaudeUsageMonitor-1.7.3.dmg) (19 MB)
-   — or the [`.app.zip`](../../releases/download/v1.7.3/ClaudeUsageMonitor-1.7.3.app.zip)
+1. **Download** [`ClaudeUsageMonitor-1.8.0.dmg`](../../releases/download/v1.8.0/ClaudeUsageMonitor-1.8.0.dmg) (19 MB)
+   — or the [`.app.zip`](../../releases/download/v1.8.0/ClaudeUsageMonitor-1.8.0.app.zip)
 2. **Open** the DMG and drag `Claude Usage Monitor.app` to `Applications`
 3. **Launch** from Applications
 
@@ -127,7 +129,7 @@ The status bar shows current usage and reset countdown:
 
 ### Menu Items
 
-- **📊 Claude Usage Monitor v1.7.3** - Title (non-clickable)
+- **📊 Claude Usage Monitor v1.8.0** - Title (non-clickable)
 - **⏱️  5-Hour Limit** - Shows 5-hour rolling window usage
 - **🛠️  All Models** - Shows 7-day all models usage
 - **🔷 <Model>** - Shows the 7-day per-model limit reported by the API (currently Fable); up to three such rows
@@ -135,6 +137,7 @@ The status bar shows current usage and reset countdown:
 - **⬇️ Input / ⬆️ Output** - Input and output token breakdown
 - **💰 Cost** - Estimated cost breakdown by model
 - **🗓️  Usage History** - Opens the live usage dashboard in the default browser
+- **☁️  Cloud Sync** - Off by default; shows the last sync time once configured (see below)
 - **🔄 Refresh** - Manually refresh usage data
 - **⚙️  Settings** - Configure via cURL clipboard import
 - **🚀 Auto-start on Login** - Toggle auto-start (✓ when enabled)
@@ -158,6 +161,19 @@ The page polls every 15 seconds, so it keeps updating while it stays open.
 - **Offline snapshot**: `python3 usage_report.py` writes a self-contained
   `~/.claude_usage_report.html` with the data inlined — no server, no network. The app falls back to
   it automatically if the server cannot start.
+
+### Cloud sync (read the dashboard on a phone)
+
+The local dashboard is reachable only from this Mac. **☁️ Cloud Sync** mirrors it to a small server
+you host (`cloud/`, one Docker container): every 5 minutes the app uploads the dashboard payload when
+the numbers changed, and otherwise sends a heartbeat. The mirror serves the same dashboard behind a
+username + password sign-in, and its status pill reads **Synced 10:42**, or **Mac offline · synced …**
+when no heartbeat has arrived for 15 minutes.
+
+1. Deploy the server: see [`cloud/README.md`](cloud/README.md).
+2. Click **☁️ Cloud Sync** → enter the server URL and the upload token → **Turn On**.
+
+Clicking the row again offers **Open in Browser** and **Turn Off**.
 
 ### Updates
 
@@ -239,13 +255,18 @@ names are.
 
 ### What leaves the machine
 
-Nothing that this app generates. The dashboard is served from `127.0.0.1` on a random port, every
+Nothing that this app generates, unless you turn on **Cloud Sync**. The local dashboard is served from `127.0.0.1` on a random port, every
 request must carry a token minted at startup, the Host header must be loopback, and the page fetches
 from that server only — no CDN, no web fonts, no analytics. The app makes exactly one kind of network
 request of its own: the usage API call to claude.ai, and only when you have configured a session —
 plus the daily update check against the GitHub releases API, which sends nothing beyond a plain GET. (It
 also opens two URLs in your browser when you click a menu row — the local dashboard, and
 claude.ai/settings/usage from the settings help.)
+
+With Cloud Sync on, the dashboard payload goes to the server URL you entered, and nowhere else:
+aggregated token counts per hour / day / model / project, estimated costs, the recorded All Models
+readings, and project names (the working directory's folder name). Conversation text, the claude.ai
+cookie and the organisation id are never uploaded. The upload is HTTPS with a bearer token.
 
 Your session cookie and organisation id live in `~/.claude_usage_config.json` with `600` permissions.
 
@@ -330,7 +351,9 @@ Location: `~/.claude_usage_config.json`
 {
   "cookie": "sessionKey=sk-ant-sid02-...; lastActiveOrg=...; cf_clearance=...",
   "org_id": "12345678-90ab-cdef-1234-567890abcdef",
-  "account_name": ""
+  "account_name": "",
+  "cloud_url": "https://claude-usage.example.com",
+  "cloud_token": "..."
 }
 ```
 

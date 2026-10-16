@@ -457,6 +457,12 @@ def _same_numbers(a, b):
 _DEFAULT_SCANNER = Scanner()
 
 
+def shared_scanner():
+    """The one Scanner the dashboard server and cloud sync both read from, so
+    the transcripts are held in memory once."""
+    return _DEFAULT_SCANNER
+
+
 def build_payload(live=False, poll_seconds=15):
     """One-shot payload for the static report."""
     return _DEFAULT_SCANNER.payload(max_age=0, live=live, poll_seconds=poll_seconds)

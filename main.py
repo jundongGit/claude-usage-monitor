@@ -4,7 +4,7 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.7.3"
+__version__ = "1.8.0"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
@@ -25,6 +25,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import usage_report  # noqa: E402
 import report_server  # noqa: E402
 import updater  # noqa: E402
+import cloud_sync  # noqa: E402
 from AppKit import (NSApp, NSAlert, NSAlertFirstButtonReturn, NSFloatingWindowLevel,
                      NSMenu, NSMenuItem, NSPasteboard, NSPasteboardTypeString)
 from PyObjCTools import AppHelper
@@ -174,6 +175,8 @@ MENU_SESSION = "\u23f1\ufe0f  5-Hour Limit: Loading..."
 MENU_WEEKLY_ALL = "\U0001F6E0\ufe0f  All Models: Loading..."
 MENU_HISTORY = "\U0001F5D3\ufe0f  Usage History"
 MENU_UPDATE = "\u2b07\ufe0f  Check for Updates\u2026"
+MENU_CLOUD = "\u2601\ufe0f  Cloud Sync: Off"
+CLOUD_DEFAULT_URL = "https://claude-usage.cloud01.top"
 MENU_SCOPED = (
     "\U0001F537 Model Limit 1: Loading...",
     "\U0001F537 Model Limit 2: Loading...",
@@ -308,6 +311,14 @@ class ClaudeUsageApp(rumps.App):
         self._update_notified = None
         self._update_item = rumps.MenuItem(MENU_UPDATE, callback=self.on_update_clicked)
 
+        # Cloud mirror of the usage history, for reading it on a phone
+        self._cloud_item = rumps.MenuItem(MENU_CLOUD, callback=self.on_cloud_clicked)
+        self._cloud_ok = None
+        self.cloud = cloud_sync.CloudSync(
+            f"ClaudeUsageMonitor/{__version__}",
+            lambda ok, message: AppHelper.callAfter(self._on_cloud_synced, ok, message))
+        self.cloud.configure(self.cloud_url, self.cloud_token)
+
         # Menu items
         self.menu = [
             rumps.MenuItem(f"📊 Claude Usage Monitor v{__version__}", callback=None),
@@ -324,6 +335,7 @@ class ClaudeUsageApp(rumps.App):
             rumps.MenuItem("💰 Cost: Loading...", callback=None),
             rumps.separator,
             rumps.MenuItem(MENU_HISTORY, callback=self.open_usage_history),
+            self._cloud_item,
             rumps.MenuItem("🔄 Refresh", callback=self.refresh_usage),
             rumps.MenuItem("⚙️  Settings", callback=self.set_config),
             rumps.MenuItem("🚀 Auto-start on Login", callback=self.toggle_autostart),
@@ -375,6 +387,11 @@ class ClaudeUsageApp(rumps.App):
         self.timer = rumps.Timer(self.refresh_usage, 60)
         self.timer.start()
 
+        # Cloud sync: first pass once startup settles (the first scan reads every transcript)
+        self._update_cloud_menu()
+        self._cloud_timer = rumps.Timer(lambda _: self.cloud.sync_async(), cloud_sync.INTERVAL)
+        AppHelper.callLater(10, self._cloud_timer.start)
+
     def _deferred_setup_edit_menu(self, _):
         """Add standard Edit menu so Cmd+C/V/X/A work in dialogs"""
         self._edit_menu_timer.stop()
@@ -399,6 +416,8 @@ class ClaudeUsageApp(rumps.App):
 
     def load_config(self):
         """Load configuration file"""
+        self.cloud_url = ''
+        self.cloud_token = ''
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, 'r') as f:
@@ -406,6 +425,8 @@ class ClaudeUsageApp(rumps.App):
                     self.cookie = config.get('cookie', '')
                     self.org_id = config.get('org_id', '')
                     self.account_name = config.get('account_name', '')
+                    self.cloud_url = config.get('cloud_url', '')
+                    self.cloud_token = config.get('cloud_token', '')
             except json.JSONDecodeError as e:
                 print(f"Config file corrupted, reset: {e}")
                 # Backup corrupted file
@@ -434,7 +455,9 @@ class ClaudeUsageApp(rumps.App):
         config = {
             'cookie': self.cookie,
             'org_id': self.org_id,
-            'account_name': self.account_name
+            'account_name': self.account_name,
+            'cloud_url': self.cloud_url,
+            'cloud_token': self.cloud_token,
         }
         try:
             # Write config file
@@ -968,6 +991,80 @@ class ClaudeUsageApp(rumps.App):
             return
         updater.relaunch(bundle)
         rumps.quit_application()
+
+    def _update_cloud_menu(self, status=None):
+        if not self.cloud.enabled:
+            self._cloud_item.title = MENU_CLOUD
+        else:
+            self._cloud_item.title = "\u2601\ufe0f  Cloud Sync: " + (status or "On")
+
+    def _on_cloud_synced(self, ok, message):
+        """Main-thread half of a sync pass."""
+        if ok:
+            self._update_cloud_menu(datetime.now().strftime("%H:%M"))
+        else:
+            self._update_cloud_menu("Failed")
+            print(f"Cloud sync failed: {message}")
+            if self._cloud_ok is not False:  # notify on the transition only
+                rumps.notification(title="Cloud Sync Failed", subtitle="", message=message)
+        self._cloud_ok = ok
+
+    def _choice_alert(self, title, message, buttons):
+        """Alert with up to three buttons; returns the clicked index."""
+        NSApp.activateIgnoringOtherApps_(True)
+        alert = NSAlert.alloc().init()
+        alert.setMessageText_(title)
+        alert.setInformativeText_(message)
+        for b in buttons:
+            alert.addButtonWithTitle_(b)
+        alert.window().setLevel_(NSFloatingWindowLevel)
+        return alert.runModal() - NSAlertFirstButtonReturn
+
+    def _ask_text(self, title, message, default=""):
+        NSApp.activateIgnoringOtherApps_(True)
+        response = rumps.Window(message=message, title=title, default_text=default,
+                                ok="Continue", cancel="Cancel", dimensions=(320, 24)).run()
+        return response.text.strip() if response.clicked == 1 else None
+
+    def on_cloud_clicked(self, _):
+        if self.cloud.enabled:
+            choice = self._choice_alert(
+                "Cloud Sync",
+                f"Usage history is uploaded to {self.cloud_url} every "
+                f"{cloud_sync.INTERVAL // 60} minutes while this Mac is on.",
+                ["Open in Browser", "Turn Off", "Cancel"])
+            if choice == 0:
+                webbrowser.open(self.cloud_url)
+            elif choice == 1:
+                self.cloud_token = ''
+                self.cloud.configure(self.cloud_url, '')
+                self.save_config()
+                self._cloud_ok = None
+                self._update_cloud_menu()
+            return
+
+        url = self._ask_text("Cloud Sync", "Server URL", self.cloud_url or CLOUD_DEFAULT_URL)
+        if not url:
+            return
+        if not re.match(r"^https://[^\s/]+", url):
+            self._top_alert("Cloud Sync", "The server URL must start with https://")
+            return
+        token = self._ask_text("Cloud Sync", "Upload token")
+        if not token:
+            return
+        sent = self._choice_alert(
+            "Cloud Sync",
+            "Uploaded: token counts, estimated costs, quota readings and project folder names.\n"
+            "Not uploaded: conversation content, the claude.ai cookie and the organization ID.",
+            ["Turn On", "Cancel"])
+        if sent != 0:
+            return
+        self.cloud_url, self.cloud_token = url.rstrip("/"), token
+        self.cloud.configure(self.cloud_url, self.cloud_token)
+        self.save_config()
+        self._cloud_ok = None
+        self._update_cloud_menu("Syncing\u2026")
+        self.cloud.sync_async()
 
     def open_usage_history(self, _):
         """Open the live usage dashboard.

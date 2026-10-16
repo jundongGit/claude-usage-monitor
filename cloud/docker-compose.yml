@@ -1,0 +1,16 @@
+services:
+  claude-usage:
+    build:
+      context: ..
+      dockerfile: cloud/Dockerfile
+    container_name: claude-usage
+    restart: always
+    env_file: .env
+    volumes:
+      - ./data:/data
+    networks:
+      - npm_default
+
+networks:
+  npm_default:
+    external: true
