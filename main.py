@@ -4,7 +4,7 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.8.0"
+__version__ = "1.8.1"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
@@ -1072,6 +1072,10 @@ class ClaudeUsageApp(rumps.App):
         The page is served from loopback rather than written to a file, so it
         can poll for new numbers while it stays open. Starting the server is
         instant; the first transcript scan runs in the background behind it.
+
+        With Cloud Sync on, the cloud mirror opens instead (the same page as on
+        the phone), after a sync so it shows current numbers. If the server
+        cannot be reached, the local dashboard opens as before.
         """
         if getattr(self, "_report_running", False):
             return
@@ -1079,6 +1083,12 @@ class ClaudeUsageApp(rumps.App):
         _set_label(self.menu[MENU_HISTORY], "\U0001F5D3\ufe0f  Opening dashboard...")
 
         def work():
+            if self.cloud.enabled:
+                result = self.cloud.sync()  # None: a sync is already running
+                if result is None or result[0]:
+                    AppHelper.callAfter(self._finish_report, self.cloud_url, None)
+                    return
+                print(f"Cloud mirror unavailable, opening the local dashboard: {result[1]}")
             try:
                 url = report_server.start()
             except Exception as e:

@@ -5,6 +5,11 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-10-19
+
+### 🔧 Changed
+- **Usage History opens the cloud mirror when Cloud Sync is on.** The row syncs once, then opens the mirror's URL, so the desktop shows the same page as the phone with current numbers. If the sync fails, the local dashboard opens as before.
+
 ## [1.8.0] - 2026-10-17
 
 ### ✨ Added
