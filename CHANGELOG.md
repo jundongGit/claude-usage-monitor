@@ -5,6 +5,11 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2] - 2026-10-19
+
+### 🐛 Fixed
+- **In-app update failed with "'ascii' codec can't decode byte 0xe2" on Macs set to a 12-hour clock.** The updater decoded `codesign`/`spctl` output with the locale's encoding, which is ASCII for an app launched from Finder, and `codesign -dv` prints its signing timestamp with a narrow no-break space (U+202F) before AM/PM. Output is now decoded as UTF-8. Copies of 1.7.3–1.8.1 on such Macs cannot update themselves past this bug and need 1.8.2 installed manually once.
+
 ## [1.8.1] - 2026-10-19
 
 ### 🔧 Changed

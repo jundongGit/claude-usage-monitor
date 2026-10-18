@@ -85,7 +85,11 @@ def can_install_in_place(bundle):
 
 
 def _run(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    # Decode as UTF-8 explicitly: an app launched from Finder has no LANG, so the
+    # default would be ASCII, and codesign's Timestamp line carries a U+202F
+    # before AM/PM on 12-hour locales.
+    return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", timeout=120)
 
 
 def _verify(app, version):

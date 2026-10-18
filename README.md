@@ -4,7 +4,7 @@
 
 A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
-![Version](https://img.shields.io/badge/version-1.8.1-blue)
+![Version](https://img.shields.io/badge/version-1.8.2-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -32,7 +32,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **Menu:**
 ```
-📊 Claude Usage Monitor v1.8.1
+📊 Claude Usage Monitor v1.8.2
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⏱️  5-Hour: 🟢 14% (Resets in 2hr 33min)
 🛠️  All Models: 🟢 4% (Resets Sun 10:00 PM)
@@ -58,8 +58,8 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.8.1.dmg`](../../releases/download/v1.8.1/ClaudeUsageMonitor-1.8.1.dmg) (19 MB)
-   — or the [`.app.zip`](../../releases/download/v1.8.1/ClaudeUsageMonitor-1.8.1.app.zip)
+1. **Download** [`ClaudeUsageMonitor-1.8.2.dmg`](../../releases/download/v1.8.2/ClaudeUsageMonitor-1.8.2.dmg) (19 MB)
+   — or the [`.app.zip`](../../releases/download/v1.8.2/ClaudeUsageMonitor-1.8.2.app.zip)
 2. **Open** the DMG and drag `Claude Usage Monitor.app` to `Applications`
 3. **Launch** from Applications
 
@@ -129,7 +129,7 @@ The status bar shows current usage and reset countdown:
 
 ### Menu Items
 
-- **📊 Claude Usage Monitor v1.8.1** - Title (non-clickable)
+- **📊 Claude Usage Monitor v1.8.2** - Title (non-clickable)
 - **⏱️  5-Hour Limit** - Shows 5-hour rolling window usage
 - **🛠️  All Models** - Shows 7-day all models usage
 - **🔷 <Model>** - Shows the 7-day per-model limit reported by the API (currently Fable); up to three such rows
