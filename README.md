@@ -4,7 +4,7 @@
 
 A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
-![Version](https://img.shields.io/badge/version-1.8.2-blue)
+![Version](https://img.shields.io/badge/version-1.8.3-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -32,7 +32,7 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **Menu:**
 ```
-📊 Claude Usage Monitor v1.8.2
+📊 Claude Usage Monitor v1.8.3
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⏱️  5-Hour: 🟢 14% (Resets in 2hr 33min)
 🛠️  All Models: 🟢 4% (Resets Sun 10:00 PM)
@@ -58,8 +58,8 @@ A sleek macOS status bar app for real-time monitoring of your Claude.ai usage
 
 **No Python installation required!** Download the pre-built app:
 
-1. **Download** [`ClaudeUsageMonitor-1.8.2.dmg`](../../releases/download/v1.8.2/ClaudeUsageMonitor-1.8.2.dmg) (19 MB)
-   — or the [`.app.zip`](../../releases/download/v1.8.2/ClaudeUsageMonitor-1.8.2.app.zip)
+1. **Download** [`ClaudeUsageMonitor-1.8.3.dmg`](../../releases/download/v1.8.3/ClaudeUsageMonitor-1.8.3.dmg) (19 MB)
+   — or the [`.app.zip`](../../releases/download/v1.8.3/ClaudeUsageMonitor-1.8.3.app.zip)
 2. **Open** the DMG and drag `Claude Usage Monitor.app` to `Applications`
 3. **Launch** from Applications
 
@@ -129,7 +129,7 @@ The status bar shows current usage and reset countdown:
 
 ### Menu Items
 
-- **📊 Claude Usage Monitor v1.8.2** - Title (non-clickable)
+- **📊 Claude Usage Monitor v1.8.3** - Title (non-clickable)
 - **⏱️  5-Hour Limit** - Shows 5-hour rolling window usage
 - **🛠️  All Models** - Shows 7-day all models usage
 - **🔷 <Model>** - Shows the 7-day per-model limit reported by the API (currently Fable); up to three such rows
@@ -171,7 +171,11 @@ username + password sign-in, and its status pill reads **Synced 10:42**, or **Ma
 when no heartbeat has arrived for 15 minutes.
 
 1. Deploy the server: see [`cloud/README.md`](cloud/README.md).
-2. Click **☁️ Cloud Sync** → enter the server URL and the upload token → **Turn On**.
+2. Click **☁️ Cloud Sync** → enter the server URL → **Upload** → the upload token → **Turn On**.
+
+The server keeps one copy, and each upload replaces it with that Mac's own transcripts. With
+several Macs, turn on **Upload** on the one where Claude Code runs and choose **View Only** on the
+others: there **🗓️ Usage History** opens the mirror and nothing is uploaded.
 
 Clicking the row again offers **Open in Browser** and **Turn Off**. While Cloud Sync is on,
 **🗓️ Usage History** syncs once and opens the mirror, so desktop and phone show the same page; if the
@@ -355,7 +359,8 @@ Location: `~/.claude_usage_config.json`
   "org_id": "12345678-90ab-cdef-1234-567890abcdef",
   "account_name": "",
   "cloud_url": "https://claude-usage.example.com",
-  "cloud_token": "..."
+  "cloud_token": "...",
+  "cloud_view_only": false
 }
 ```
 

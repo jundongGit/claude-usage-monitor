@@ -5,6 +5,11 @@ All notable changes to Claude Usage Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.3] - 2026-10-19
+
+### ✨ Added
+- **Cloud Sync: View Only.** Setting up Cloud Sync now asks for **Upload** or **View Only**. View Only stores just the server URL: **🗓️ Usage History** opens the mirror and this Mac uploads nothing. The mirror keeps one copy that each upload replaces with the uploading Mac's own transcripts, so on a second Mac View Only keeps the phone page from switching between the two machines' numbers.
+
 ## [1.8.2] - 2026-10-19
 
 ### 🐛 Fixed

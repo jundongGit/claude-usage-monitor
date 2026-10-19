@@ -4,7 +4,7 @@ Claude Usage Monitor - macOS Status Bar App
 Monitor Claude.ai usage and display in the status bar
 """
 
-__version__ = "1.8.2"
+__version__ = "1.8.3"
 __author__ = "Claude Usage Monitor Contributors"
 
 import rumps
@@ -418,6 +418,7 @@ class ClaudeUsageApp(rumps.App):
         """Load configuration file"""
         self.cloud_url = ''
         self.cloud_token = ''
+        self.cloud_view_only = False
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, 'r') as f:
@@ -427,6 +428,7 @@ class ClaudeUsageApp(rumps.App):
                     self.account_name = config.get('account_name', '')
                     self.cloud_url = config.get('cloud_url', '')
                     self.cloud_token = config.get('cloud_token', '')
+                    self.cloud_view_only = bool(config.get('cloud_view_only', False))
             except json.JSONDecodeError as e:
                 print(f"Config file corrupted, reset: {e}")
                 # Backup corrupted file
@@ -458,6 +460,7 @@ class ClaudeUsageApp(rumps.App):
             'account_name': self.account_name,
             'cloud_url': self.cloud_url,
             'cloud_token': self.cloud_token,
+            'cloud_view_only': self.cloud_view_only,
         }
         try:
             # Write config file
@@ -992,8 +995,15 @@ class ClaudeUsageApp(rumps.App):
         updater.relaunch(bundle)
         rumps.quit_application()
 
+    @property
+    def _cloud_view(self):
+        """View only: Usage History opens the mirror, this Mac uploads nothing."""
+        return bool(self.cloud_view_only and self.cloud_url and not self.cloud.enabled)
+
     def _update_cloud_menu(self, status=None):
-        if not self.cloud.enabled:
+        if self._cloud_view:
+            self._cloud_item.title = "\u2601\ufe0f  Cloud Sync: View Only"
+        elif not self.cloud.enabled:
             self._cloud_item.title = MENU_CLOUD
         else:
             self._cloud_item.title = "\u2601\ufe0f  Cloud Sync: " + (status or "On")
@@ -1042,12 +1052,38 @@ class ClaudeUsageApp(rumps.App):
                 self._cloud_ok = None
                 self._update_cloud_menu()
             return
+        if self._cloud_view:
+            choice = self._choice_alert(
+                "Cloud Sync",
+                f"Usage History opens {self.cloud_url}. This Mac does not upload.",
+                ["Open in Browser", "Turn Off", "Cancel"])
+            if choice == 0:
+                webbrowser.open(self.cloud_url)
+            elif choice == 1:
+                self.cloud_view_only = False
+                self.save_config()
+                self._update_cloud_menu()
+            return
 
         url = self._ask_text("Cloud Sync", "Server URL", self.cloud_url or CLOUD_DEFAULT_URL)
         if not url:
             return
         if not re.match(r"^https://[^\s/]+", url):
             self._top_alert("Cloud Sync", "The server URL must start with https://")
+            return
+        mode = self._choice_alert(
+            "Cloud Sync",
+            "Upload: this Mac's usage replaces the copy on the server.\n"
+            "View Only: Usage History opens the server's copy; nothing is uploaded.",
+            ["Upload", "View Only", "Cancel"])
+        if mode == 1:
+            self.cloud_url, self.cloud_token, self.cloud_view_only = url.rstrip("/"), '', True
+            self.cloud.configure(self.cloud_url, '')
+            self.save_config()
+            self._cloud_ok = None
+            self._update_cloud_menu()
+            return
+        if mode != 0:
             return
         token = self._ask_text("Cloud Sync", "Upload token")
         if not token:
@@ -1059,7 +1095,7 @@ class ClaudeUsageApp(rumps.App):
             ["Turn On", "Cancel"])
         if sent != 0:
             return
-        self.cloud_url, self.cloud_token = url.rstrip("/"), token
+        self.cloud_url, self.cloud_token, self.cloud_view_only = url.rstrip("/"), token, False
         self.cloud.configure(self.cloud_url, self.cloud_token)
         self.save_config()
         self._cloud_ok = None
@@ -1075,9 +1111,13 @@ class ClaudeUsageApp(rumps.App):
 
         With Cloud Sync on, the cloud mirror opens instead (the same page as on
         the phone), after a sync so it shows current numbers. If the server
-        cannot be reached, the local dashboard opens as before.
+        cannot be reached, the local dashboard opens as before. In View Only
+        mode the mirror opens without a sync.
         """
         if getattr(self, "_report_running", False):
+            return
+        if self._cloud_view:
+            webbrowser.open(self.cloud_url)
             return
         self._report_running = True
         _set_label(self.menu[MENU_HISTORY], "\U0001F5D3\ufe0f  Opening dashboard...")
